@@ -404,8 +404,8 @@ class ModIRC(SingleServerIRCBot):
                 else:
                     rolls = []
                     for x in range(1,len(command_list)):
-                        # todo check pattern matching for XdY +/- Z
-                        rolls.append(command_list[x])
+                        if re.match("([0-9]{0,2})#?[dD]([0-9]{1,2})([\+\-][0-9]+)?",command_list[x]):
+                            rolls.append(command_list[x])
                     msg = self.handle_roll(source,rolls)
         elif command_list[0] == "!drink":
             if self.settings.speaking == 0:
