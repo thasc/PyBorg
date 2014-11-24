@@ -317,27 +317,26 @@ class ModIRC(SingleServerIRCBot):
 
         # WHOOHOOO!!
         if target == self.settings.myname or source == self.settings.myname:
-            print "[%s] <%s> > %s> %s" % (get_time(), source, target, body)
+            print "[%s] Output: <%s> > %s> %s" % (get_time(), source, target, body)
 
         # Ignore self.
         if source == self.settings.myname: return
 
-
-        #replace nicknames by "#nick"
+        # replace nicknames by "#nick"
         if e.eventtype() == "pubmsg":
             escaped_users = map(re.escape, self.channels[target].users())
             # Match nicks on word boundaries to avoid rewriting words incorrectly as containing nicks.
             p = re.compile(r'\b(' + ('|'.join(escaped_users)) + r')\b')
             body = p.sub('#nick', body)
-        print body
+        print "Input: " + body
 
         # Ignore selected nicks
         if self.settings.ignorelist.count(source.lower()) > 0 \
                 and self.settings.reply2ignored == 1:
-            print "Nolearn from %s" % source
+            print "[%s] [Nolearn from %s.]" % (get_time(), source)
             learn = 0
         elif self.settings.ignorelist.count(source.lower()) > 0:
-            print "Ignoring %s" % source
+            print "[%s] [Ignoring %s.]" % (get_time(), source)
             return
 
         # Stealth mode. disable commands for non owners
@@ -350,24 +349,19 @@ class ModIRC(SingleServerIRCBot):
 
         # Ignore quoted messages
         if body[0] == "<" or body[0:1] == "\"" or body[0:1] == " <":
-            print "Ignoring quoted text"
+            print "[Ignoring quoted text.]"
             return
 
         # We want replies reply_chance%, if speaking is on
         replyrate = self.settings.speaking * self.settings.reply_chance
 
-        # double reply chance if the text contains our nickname :-)
-        if body.lower().find(self.settings.myname.lower()) != -1:
-            replyrate = replyrate * 2
+        # Guarantee a reply if the text contains our nickname or this is a private message.
+        if (body.lower().find(self.settings.myname.lower()) != -1) or e.eventtype() == "privmsg":
+            replyrate = replyrate = 100
 
-        # Always reply to private messages
-        if e.eventtype() == "privmsg":
-            replyrate = 100
-
-            # Parse ModIRC commands
-            if body[0] == "!":
-                if self.irc_commands(body, source, target, c, e) == 1:return
-
+        # Parse ModIRC commands
+        if body[0] == "!":
+            if self.irc_commands(body, source, target, c, e) == 1:return
 
         # Pass message onto pyborg
         if source in self.owners and e.source() in self.owner_mask:
@@ -381,9 +375,9 @@ class ModIRC(SingleServerIRCBot):
         Special IRC commands.
         """
         msg = ""
-
         command_list = body.split()
         command_list[0] = command_list[0].lower()
+        arg_count = len(command_list)
 
         ### User commands
         # Query replyrate
@@ -393,12 +387,55 @@ class ModIRC(SingleServerIRCBot):
         if command_list[0] == "!owner" and len(command_list) > 1 and source not in self.owners:
             if command_list[1] == self.settings.password:
                 self.owners.append(source)
-                self.output("You've been added to owners list", ("", source, target, c, e))
+                self.output("You've been added to owners list.", ("", source, target, c, e))
             else:
-                self.output("Try again", ("", source, target, c, e))
+                self.output("WRONG. Try again.", ("", source, target, c, e))
+        # Stop talking
+        elif command_list[0] == "!shutup":
+            if self.settings.speaking == 1:
+                msg = "Fine, I'll be quiet."
+                self.settings.speaking = 0
+            else:
+                msg = "..."
+        elif command_list[0] == "!roll":
+            if self.settings.speaking == 0:
+                if arg_count <= 1:
+                    msg = "%s: Tell me what you want to roll! Syntax is: XdY+/-Z." % source
+                else:
+                    rolls = []
+                    for x in range(1,len(command_list)):
+                        # todo check pattern matching for XdY +/- Z
+                        rolls.append(command_list[x])
+                    msg = self.handle_roll(source,rolls)
+        elif command_list[0] == "!drink":
+            if self.settings.speaking == 0:
+                self.output("\x01ACTION slings " + self.get_drink() + " down the bar to " + source + ".\x01", ("<none>", source, target, c, e))
+        elif command_list[0] == "!quote":
+            if self.settings.speaking == 0:
+                quotestr = ""
+                if arg_count > 1:
+                    for x in range(1, len(command_list)):
+                        if x > 1:
+                            quotestr = quotestr + " "
+                        quotestr = quotestr + str(command_list[x])
+                    else:
+                        quotestr = "random"
+                msg = source + ": " + self.get_quote(quotestr)
+        elif command_list[0] == "!note":
+            if arg_count == 1:
+                msg = "Who do you want to send a note to, " + source + "?"
+            elif arg_count == 2:
+                msg = "What do you want the note to contain, " + source + "?"
+            else:
+                note_string = ""
+                for x in range(2,arg_count):
+                    if(x > 2):
+                        note_string = note_string + " "
+                    note_string = note_string + command_list[x]
+                msg = self.handle_note(source,command_list[1],note_string)
 
         ### Owner commands
-        if source in self.owners and e.source() in self.owner_mask:
+        if msg == 0 and source in self.owners and e.source() in self.owner_mask:
 
             # Change nick
             if command_list[0] == "!nick":
@@ -424,10 +461,10 @@ class ModIRC(SingleServerIRCBot):
                     else:
                         msg = msg + "off"
                         self.settings.stealth = 0
-
+                msg = msg + "."
             # filter mirc colours out?
             elif command_list[0] == "!nocolor" or command_list[0] == "!nocolour":
-                msg = "obsolete command "
+                msg = "Obsolete command."
 
             # Allow/disallow replying to ignored nicks
             # (they will never be learnt from)
@@ -446,20 +483,13 @@ class ModIRC(SingleServerIRCBot):
                     else:
                         msg = msg + "off"
                         self.settings.reply2ignored = 0
-            # Stop talking
-            elif command_list[0] == "!shutup":
-                if self.settings.speaking == 1:
-                    msg = "I'll be quiet :-("
-                    self.settings.speaking = 0
-                else:
-                    msg = ":-x"
             # Wake up again
             elif command_list[0] == "!wakeup":
                 if self.settings.speaking == 0:
                     self.settings.speaking = 1
-                    msg = "Whoohoo!"
+                    msg = "I am now awake."
                 else:
-                    msg = "But i'm already awake..."
+                    msg = "I'm already active."
 
             # Join a channel or list of channels
             elif command_list[0] == "!join":
@@ -467,7 +497,7 @@ class ModIRC(SingleServerIRCBot):
                     if not command_list[x] in self.chans:
                         self.chans.append(command_list[x])
                     if not command_list[x].lower() in self.inchans:
-                        msg = "Attempting to join channel %s" % command_list[x]
+                        msg = "Attempting to join channel %s." % command_list[x]
                         c.join(command_list[x])
 
             # Part a channel or list of channels
@@ -482,9 +512,9 @@ class ModIRC(SingleServerIRCBot):
             # List channels currently on
             elif command_list[0] == "!chans":
                 if len(self.channels.keys())==0:
-                    msg = "I'm currently on no channels"
+                    msg = "I'm not currently on any channels."
                 else:
-                    msg = "I'm currently on "
+                    msg = "I'm currently on: "
                     channels = self.channels.keys()
                     for x in xrange(0, len(channels)):
                         msg = msg+channels[x]+" "
@@ -499,12 +529,13 @@ class ModIRC(SingleServerIRCBot):
                     else:
                         for x in xrange(0, len(self.settings.ignorelist)):
                             msg = msg + self.settings.ignorelist[x] + " "
+                    msg = msg + "."
                 # Add everyone listed to the ignore list
                 # eg !ignore tom dick harry
                 else:
                     for x in xrange(1, len(command_list)):
                         self.settings.ignorelist.append(command_list[x].lower())
-                        msg = "done"
+                        msg = "Done."
             # remove someone from the ignore list
             elif command_list[0] == "!unignore":
                 # Remove everyone listed from the ignore list
@@ -512,16 +543,16 @@ class ModIRC(SingleServerIRCBot):
                 for x in xrange(1, len(command_list)):
                     try:
                         self.settings.ignorelist.remove(command_list[x].lower())
-                        msg = "done"
+                        msg = "Done."
                     except:
                         pass
             # set the quit message
             elif command_list[0] == "!quitmsg":
                 if len(command_list) > 1:
                     self.settings.quitmsg = body.split(" ", 1)[1]
-                    msg = "New quit message is \"%s\"" % self.settings.quitmsg
+                    msg = "New quit message is: \"%s\"." % self.settings.quitmsg
                 else:
-                    msg = "Quit message is \"%s\"" % self.settings.quitmsg
+                    msg = "Quit message is: \"%s\"." % self.settings.quitmsg
             # make the pyborg quit
             elif command_list[0] == "!quit":
                 sys.exit()
@@ -568,7 +599,7 @@ class ModIRC(SingleServerIRCBot):
         if self.connection.is_connected():
             for i in self.chans:
                 if not i.split()[0].lower() in self.inchans:
-                    print "Attempting to rejoin %s" % i
+                    print "Attempting to rejoin %s." % i
                     self.connection.join(i)
         self.connection.execute_delayed(20, self._chan_checker)
 
@@ -605,15 +636,15 @@ class ModIRC(SingleServerIRCBot):
         Output a line of text. args = (body, source, target, c, e)
         """
         if not self.connection.is_connected():
-            print "Can't send reply : not connected to server"
+            print "Can't send reply: not connected to server"
             return
 
         # Unwrap arguments
         body, source, target, c, e = args
 
         # replace by the good nickname
-        message = message.replace("#nick :", "#nick:")
-        message = message.replace("#nick", source)
+        # message = message.replace("#nick :", "#nick:")
+        # message = message.replace("#nick", source)
 
         # Decide. should we do a ctcp action?
         if message.find(self.settings.myname.lower()+" ") == 0:
@@ -668,6 +699,37 @@ class ModIRC(SingleServerIRCBot):
 
     def autosave_stop(self):
         self.should_autosave = False
+
+    # Some extra functions for #trueidlers defined after this point.
+    
+    ##
+    # This function takes a source, a recipient and a string and saves a note to pass to them later.
+    # @param sender person sending the message
+    # @param recipient target for the message
+    # @param note the message body
+    def handle_note(self,sender,recipient,note):
+        return "Sending \"%s\" to %s, %s (not really, todo)." % (note, recipient, sender)
+
+    ##
+    # Processes several strings of dice rolls and returns the results.
+    # @param sender person requesting the rolls
+    # @param rolls list of roll strings to process
+    def handle_roll(self,sender,rolls):
+        rollstring = ""
+        for x in range(0,len(rolls)):
+            if x > 0:
+                rollstring = rollstring + ", "
+            rollstring = rollstring + rolls[x]
+        return "%s: result is %s, this is where I'll return results when I process them." % (sender, rollstring)
+        
+    def get_drink(self):
+        return "a random drink"
+
+    def get_quote(self,quotestr):
+        if not quotestr or quotestr == "random":
+            return "No quotes saved."
+        else:
+            return "No quotes for \"%s\"." % quotestr
 
 if __name__ == "__main__":
 
