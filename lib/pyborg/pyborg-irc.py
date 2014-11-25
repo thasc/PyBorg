@@ -400,13 +400,34 @@ class ModIRC(SingleServerIRCBot):
         elif command_list[0] == "!roll":
             if self.settings.speaking == 0:
                 if arg_count <= 1:
-                    msg = "%s: Tell me what you want to roll! Syntax is: XdY+/-Z." % source
+                    msg = "%s: Syntax: XdY+/-Z (or X#dY for separate rolls).  Mod, dice or sides max is 99 (-99 for mod)." % source
                 else:
-                    rolls = []
-                    for x in range(1,len(command_list)):
-                        if re.match("([0-9]{0,2})#?[dD]([0-9]{1,2})([\+\-][0-9]+)?",command_list[x]):
-                            rolls.append(command_list[x])
-                    msg = self.handle_roll(source,rolls)
+                    msg = self.handle_roll(source,command_list[1:len(command_list)])
+
+        elif command_list[0] == "!fate":
+            if arg_count <= 1:
+                msg = self.handle_fate_roll(source,0)
+            else:
+                try:
+                    modifier = int(command_list[1])
+                    msg = self.handle_fate_roll(source,modifier)
+                except ValueError:
+                    msg = "%s: Syntax: !fate <modifier>." % source
+        elif command_list[0] == "!dryh":
+            if arg_count <= 4:
+                msg = "%s: DRYH syntax: !roll dryh <discipline> <exhaustion> <madness> <pain>." % source
+            else:
+                pools = []
+                for x in range(1,5):
+                    try:
+                        pools.append(int(command_list[x]))
+                    except ValueError:
+                        break
+                if len(pools) == 4:
+                    msg = self.handle_dryh_roll(source,pools)
+                else:
+                    msg = "%s: DRYH syntax: !roll dryh <discipline> <exhaustion> <madness> <pain>." % source
+
         elif command_list[0] == "!drink":
             if self.settings.speaking == 0:
                 self.output("\x01ACTION slings " + self.get_drink() + " down the bar to " + source + ".\x01", ("<none>", source, target, c, e))
@@ -435,7 +456,7 @@ class ModIRC(SingleServerIRCBot):
                 msg = self.handle_note(source,command_list[1],note_string)
 
         ### Owner commands
-        if msg == 0 and source in self.owners and e.source() in self.owner_mask:
+        if (msg == 0 or not msg) and source in self.owners and e.source() in self.owner_mask:
 
             # Change nick
             if command_list[0] == "!nick":
@@ -715,12 +736,187 @@ class ModIRC(SingleServerIRCBot):
     # @param sender person requesting the rolls
     # @param rolls list of roll strings to process
     def handle_roll(self,sender,rolls):
-        rollstring = ""
+
+        rollresults = ""
+
+        first = True
+        valid_roll = False
         for x in range(0,len(rolls)):
-            if x > 0:
-                rollstring = rollstring + ", "
-            rollstring = rollstring + rolls[x]
-        return "%s: result is %s, this is where I'll return results when I process them." % (sender, rollstring)
+
+            rolldata = re.match("^([0-9]{0,2})(#?)[dD]([0-9]{1,2})([\+\-][0-9]{1,2})?$",rolls[x])
+ 
+            if not rolldata:
+                continue
+           
+            rolldata = rolldata.groups()
+
+            if not rolldata or not rolldata[2]:
+                continue
+
+            rollstring = rolls[x] + ": "
+
+            dice_mul = 1
+            dice_sides = int(rolldata[2])
+            dice_mod = 0
+
+            if rolldata[3]:
+                mod_string = rolldata[3]
+                dice_mod = int(mod_string[1:])
+                if mod_string[:1] == "-":
+                    dice_mod = 0 - dice_mod
+
+            if rolldata[0]: 
+                dice_mul = int(rolldata[0])
+            
+            if dice_mul <= 0 or dice_sides <= 0:
+                continue
+
+            if rolldata[1]:
+                rollstring += "\x02["
+                
+            valid_roll= True
+
+            dice_total = 0
+            for x in range(1,(dice_mul+1)):
+                result = random.randint(1,dice_sides)
+                if rolldata[1]:
+                    result = max(0,result+dice_mod) 
+                    rollstring += str(result)
+                    if x < dice_mul:
+                        rollstring += ", "
+                else:
+                    dice_total += result
+
+            if rolldata[1]:
+                rollstring += "]\x02"
+            else:
+                rollstring += "\x02[" + str(max(0,dice_total+dice_mod)) + "]\x02"
+
+            if first:
+                first = False
+            else:
+                rollresults += " "
+            rollresults += rollstring 
+
+        if valid_roll:
+            return "%s: %s." % (sender, rollresults)
+        else:
+            return "%s: Syntax: XdY+/-Z (or X#dY for separate rolls). Mod, dice or sides max is 99 (-99 for mod)." % sender
+
+    def handle_fate_roll(self,source,mod):
+
+        results = ["Terrible","Poor","Mediocre","Average","Fair","Good","Great","Superb","Fantastic","Epic","Legendary"]
+        result = 0
+
+        result_string = "\x02"
+        for x in range(0,4):
+            dice_roll = random.randint(1,3)
+            if(dice_roll==3):
+                result+=1
+                result_string += "\x0310+\x03"
+            elif(dice_roll==1):
+                result-=1
+                result_string += "\x0304-\x03"
+            else:
+                result_string += "\x0315o\x03"
+        result_string += "\x02"
+
+        effective_result = result+mod
+        result_descriptor = results[min(len(results)-1,max(0,effective_result+2))]
+        effective_result = "\x0310+"+str(effective_result)+"\x03" if effective_result >= 0 else "\x0304"+str(effective_result)+"\x03"
+        result = "\x0310+"+str(result)+"\x03" if result >= 0 else "\x0304"+str(result)+"\x03"
+        return "%s: [%s|%s] %s, %s!" % (source,result_string,result,effective_result,result_descriptor)
+        
+    def handle_dryh_roll(self,source,totals):
+
+        pools = []
+        result_strings = []
+        pool_names = ["Discipline","Exhaustion","Madness","Pain"]
+        dominating = "Discipline"
+        dominating_count = 0
+
+        # Cap possible roll totals.
+        totals[0] = max(1,min(totals[0],3)) 
+        totals[1] = max(0,min(totals[1],6)) 
+        totals[2] = max(0,min(totals[2],8)) 
+        totals[3] = max(0,min(totals[3],15))
+        
+        for x in range(0,4):
+            pool = [pool_names[x]]
+            pool_total = 0
+            pool_size = totals[x]
+            result_string = ""
+            for y in range(0,pool_size):
+                result = random.randint(1,6)
+                result_string += str(result)
+                pool.append(result)
+                if result < 4:
+                    pool_total += 1
+            result_strings.append(result_string)
+            totals[x] = pool_total
+            pools.append(pool)
+
+        dominating_pools = list(pools)
+        print str(dominating_pools)
+
+        strength = 6
+        for x in range(0,6):
+            strength = 6 - x
+            current_highest = 0
+            surviving_pools = []
+            for y in range(0,len(dominating_pools)):
+                pool = dominating_pools[y]
+                strength_score = pool.count(strength)
+                if strength_score > current_highest:
+                    current_highest = strength_score
+                    surviving_pools = []
+                    surviving_pools.append(pool)
+                elif strength_score == current_highest:
+                    surviving_pools.append(pool)
+            dominating_pools = surviving_pools
+            if len(dominating_pools) <= 1:
+                break
+            
+        if len(dominating_pools) == 1:
+            pool = dominating_pools[0]
+            dominating = pool[0]
+            dominating_count = pool.count(strength)
+        else:
+            pool_names = []
+            pool_strength = []
+            for x in range(0,len(dominating_pools)):
+                pool = dominating_pools[x]
+                pool_names.append(pool[0])
+                pool_strength.append(pool.count(strength))
+
+            if pool_names.count("Discipline") > 0:
+                dominating = "Discipline"
+            elif pool_names.count("Madness") > 0:
+                dominating = "Madness"
+            elif pool_names.count("Exhaustion") > 0:
+                dominating = "Exhaustion"
+            elif pool_names.count("Pain") > 0:
+                dominating = "Pain"
+            try:
+                dominating_count = pool_strength.index(dominating)
+            except ValueError:
+                dominating_count = -1
+
+        if dominating_count > 1:
+            strength = str(strength) + "'s"
+        else: 
+            strength = str(strength)
+
+        winning_score = (totals[0]+totals[1]+totals[2])    
+        winner = source
+        if totals[3] > winning_score:
+            winning_score = totals[3]
+            winner = "GM"
+
+        if dominating_count == -1:
+            return "%s: [\x0314 D[%s] \x02%d\x02 \x03\x0301E[%s] \x02%d\x02 \x03\x0304M[%s] \x02%d\x02 \x03\x0306P[%s] \x02%d\x02 \x03]: \x02%s wins\x02 with \x02%d\x02 successes, \x02%s dominates\x02 by default." % (source,result_strings[0],totals[0],result_strings[1],totals[1],result_strings[2],totals[2],result_strings[3],totals[3],winner,winning_score,dominating)
+        else:
+            return "%s: [\x0314 D[%s] \x02%d\x02 \x03\x0301E[%s] \x02%d\x02 \x03\x0304M[%s] \x02%d\x02 \x03\x0306P[%s] \x02%d\x02 \x03]: \x02%s wins\x02 with \x02%d\x02 successes, \x02%s dominates\x02 with %d %s." % (source,result_strings[0],totals[0],result_strings[1],totals[1],result_strings[2],totals[2],result_strings[3],totals[3],winner,winning_score,dominating,dominating_count,strength)
         
     def get_drink(self):
         return "a random drink"
