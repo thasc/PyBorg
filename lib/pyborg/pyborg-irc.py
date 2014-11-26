@@ -40,6 +40,11 @@ def my_remove_connection(self, connection):
 
 IRC._remove_connection = my_remove_connection
 
+from pygoogle import pygoogle
+from bs4 import BeautifulSoup
+import sqlite3 as lite
+
+import urllib2
 import os
 import pyborg
 import cfgfile
@@ -60,7 +65,7 @@ class ModIRC(SingleServerIRCBot):
     Module to interface IRC input and output with the PyBorg learn
     and reply modules.
     """
-    # The bot recieves a standard message on join. The standard part
+    # The bot receives a standard message on join. The standard part
     # message is only used if the user doesn't have a part message.
     join_msg = "%s"# is here"
     part_msg = "%s"# has left"
@@ -68,7 +73,6 @@ class ModIRC(SingleServerIRCBot):
     # For security the owner's host mask is stored
     # DON'T CHANGE THIS
     owner_mask = []
-
 
     # Command list for this module
     commandlist =   "IRC Module Commands:\n!chans, !ignore, \
@@ -101,8 +105,8 @@ class ModIRC(SingleServerIRCBot):
         """
         # PyBorg
         self.pyborg = my_pyborg
-        # load settings
 
+        # load settings
         self.settings = cfgfile.cfgset()
         self.settings.load("pyborg-irc.cfg",
                 { "myname": ("The bot's nickname", "PyBorg"),
@@ -226,10 +230,10 @@ class ModIRC(SingleServerIRCBot):
         """
         # Parse Nickname!username@host.mask.net to Nickname
         joiner = e.source().split("!")[0]
-
         if joiner == self.settings.myname:
             target = e.target() #channel
             self.inchans.append(target.lower())
+        self.welcome(joiner.lower(),c,e)
 
     def on_privmsg(self, c, e):
         self.on_msg(c, e)
@@ -323,11 +327,11 @@ class ModIRC(SingleServerIRCBot):
         if source == self.settings.myname: return
 
         # replace nicknames by "#nick"
-        if e.eventtype() == "pubmsg":
-            escaped_users = map(re.escape, self.channels[target].users())
-            # Match nicks on word boundaries to avoid rewriting words incorrectly as containing nicks.
-            p = re.compile(r'\b(' + ('|'.join(escaped_users)) + r')\b')
-            body = p.sub('#nick', body)
+        #if e.eventtype() == "pubmsg":
+        #    escaped_users = map(re.escape, self.channels[target].users())
+        #    # Match nicks on word boundaries to avoid rewriting words incorrectly as containing nicks.
+        #    p = re.compile(r'\b(' + ('|'.join(escaped_users)) + r')\b')
+        #    body = p.sub('#nick', body)
         print "Input: " + body
 
         # Ignore selected nicks
@@ -357,7 +361,7 @@ class ModIRC(SingleServerIRCBot):
 
         # Guarantee a reply if the text contains our nickname or this is a private message.
         if (body.lower().find(self.settings.myname.lower()) != -1) or e.eventtype() == "privmsg":
-            replyrate = replyrate = 100
+            replyrate = 100
 
         # Parse ModIRC commands
         if body[0] == "!":
@@ -398,11 +402,10 @@ class ModIRC(SingleServerIRCBot):
             else:
                 msg = "..."
         elif command_list[0] == "!roll":
-            if self.settings.speaking == 0:
-                if arg_count <= 1:
-                    msg = "%s: Syntax: XdY+/-Z (or X#dY for separate rolls).  Mod, dice or sides max is 99 (-99 for mod)." % source
-                else:
-                    msg = self.handle_roll(source,command_list[1:len(command_list)])
+            if arg_count <= 1:
+                msg = "%s: Syntax: XdY+/-Z (or X#dY for separate rolls).  Mod, dice or sides max is 99 (-99 for mod)." % source
+            else:
+                msg = self.handle_roll(source,command_list[1:len(command_list)])
 
         elif command_list[0] == "!fate":
             if arg_count <= 1:
@@ -413,9 +416,10 @@ class ModIRC(SingleServerIRCBot):
                     msg = self.handle_fate_roll(source,modifier)
                 except ValueError:
                     msg = "%s: Syntax: !fate <modifier>." % source
+                    
         elif command_list[0] == "!dryh":
             if arg_count <= 4:
-                msg = "%s: DRYH syntax: !roll dryh <discipline> <exhaustion> <madness> <pain>." % source
+                msg = "%s: DRYH syntax: !dryh <discipline> <exhaustion> <madness> <pain>." % source
             else:
                 pools = []
                 for x in range(1,5):
@@ -426,22 +430,122 @@ class ModIRC(SingleServerIRCBot):
                 if len(pools) == 4:
                     msg = self.handle_dryh_roll(source,pools)
                 else:
-                    msg = "%s: DRYH syntax: !roll dryh <discipline> <exhaustion> <madness> <pain>." % source
+                    msg = "%s: DRYH syntax: !dryh <discipline> <exhaustion> <madness> <pain>." % source
 
         elif command_list[0] == "!drink":
-            if self.settings.speaking == 0:
-                self.output("\x01ACTION slings " + self.get_drink() + " down the bar to " + source + ".\x01", ("<none>", source, target, c, e))
+            if self.settings.speaking == 1:
+                serving_drink = True
+                if len(command_list) > 2 and command_list[1].lower() == "add":
+                    add_file = False
+                    if command_list[2].lower() == "vessel":
+                        add_file = "drink_vessel.txt"
+                    elif command_list[2].lower() == "drink":
+                        add_file = "drink_contents.txt"
+                    elif command_list[2].lower() == "garnish":
+                        add_file = "drink_garnish.txt"
+                    elif not add_file:
+                        serving_drink = False
+                        msg = "%s: You can add strings for vessel, drink or garnish." % source
+                    if add_file:
+                        serving_drink = False
+                        new_drink_string = ""
+                        for x in range(3,len(command_list)):
+                            if x > 3:
+                                new_drink_string += " " 
+                            new_drink_string += command_list[x]
+                        msg = self.add_drink_string(add_file,new_drink_string)
+                        
+                if serving_drink:
+                    self.output("\x01ACTION slings " + self.get_drink() + " down the bar to " + source + ".\x01", ("<none>", source, target, c, e))
+
+        elif pygoogle and command_list[0] == "!google":
+            if self.settings.speaking == 1:
+                if arg_count > 1:
+                    search_string = ""
+                    for x in range(1,len(command_list)):
+                        if x > 1:
+                            search_string += " "
+                        search_string += command_list[x]
+                    results = pygoogle(search_string)
+                    results.pages = 1
+                    result_count = results.get_result_count()
+                    page_title = ""
+                    page_url = ""
+
+                    if result_count > 0:
+                        page_url = str(results.get_urls()[0])
+                        page = BeautifulSoup(urllib2.urlopen(page_url))
+                        page_title = page.title.string
+                        msg = "%s: \x02%s\x02 (%s) [%s results]" % (source, page_title[0:max(30,len(page_title))], page_url, result_count)
+                    else:
+                        msg = "%s: \x02No results\x02 for '%s\'." % (source, search_string)
+
+                else:
+                    msg = "%s: What do you want to Google?" % source
+            
         elif command_list[0] == "!quote":
-            if self.settings.speaking == 0:
-                quotestr = ""
+            if self.settings.speaking == 1:
+                input = ""
                 if arg_count > 1:
                     for x in range(1, len(command_list)):
                         if x > 1:
-                            quotestr = quotestr + " "
-                        quotestr = quotestr + str(command_list[x])
+                            input = input + " "
+                        input = input + str(command_list[x])
+                else:
+                    input = "random"
+                
+                if input != "":
+                    quote = self.get_quote(input,True)
+                    if quote:
+                        msg = "%s: %s" % (source, quote)
+                    else:   
+                        msg = "%s: No quotes for '%s'." % (source,input)
+                else:
+                    msg = "%s: \x02Quote database error\x02 for '%s'." % (source,input)
+
+        elif command_list[0] == "!addquote":
+
+            input = False
+            tag = ""
+            if arg_count > 2:
+                input = ""
+                tag = command_list[1].lower()
+                for x in range(2, len(command_list)):
+                    if x > 2:
+                        input = input + " "
+                    input = input + str(command_list[x])
+            else:
+                msg = "%s: Please supply a tag and a quote." % source
+            
+            if input:
+                db = lite.connect('quotes.db')
+                with db:
+                    current = db.cursor()    
+                    current.execute("CREATE TABLE IF NOT EXISTS Quotes(Tag TEXT, Body TEXT)")
+                    current.execute("SELECT * FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag,input))
+                    quote_exists = current.fetchall()
+                    if len(quote_exists) == 0:
+                        current.execute("INSERT INTO Quotes VALUES('%s','%s')" % (tag,input))
+                        msg = "Added quote under '%s'." % tag
                     else:
-                        quotestr = "random"
-                msg = source + ": " + self.get_quote(quotestr)
+                        msg = "That quote is already present in the database, idiot."
+
+        elif command_list[0] == "!printquotes":
+
+            db = lite.connect('quotes.db')
+            with db:
+                current = db.cursor()    
+                current.execute("CREATE TABLE IF NOT EXISTS Quotes(Tag TEXT, Body TEXT)")
+                current.execute("SELECT * FROM Quotes")
+                quotes = current.fetchall()
+
+                quote_file = open("quotes.txt","w")
+                for quote in quotes:
+                    quote_file.write("%s: %s\n" % (quote[0], quote[1]))
+                quote_file.close()
+
+                msg = "Saved to file."
+            
         elif command_list[0] == "!note":
             if arg_count == 1:
                 msg = "Who do you want to send a note to, " + source + "?"
@@ -842,16 +946,20 @@ class ModIRC(SingleServerIRCBot):
         totals[3] = max(0,min(totals[3],15))
         
         for x in range(0,4):
-            pool = [pool_names[x]]
+            pool = []
             pool_total = 0
             pool_size = totals[x]
-            result_string = ""
             for y in range(0,pool_size):
                 result = random.randint(1,6)
-                result_string += str(result)
                 pool.append(result)
                 if result < 4:
                     pool_total += 1
+
+            pool.sort()
+            pool.insert(0,pool_names[x])
+            result_string = ""
+            for y in range(1,len(pool)):
+                result_string += str(pool[y])
             result_strings.append(result_string)
             totals[x] = pool_total
             pools.append(pool)
@@ -917,15 +1025,58 @@ class ModIRC(SingleServerIRCBot):
             return "%s: [\x0314 D[%s] \x02%d\x02 \x03\x0301E[%s] \x02%d\x02 \x03\x0304M[%s] \x02%d\x02 \x03\x0306P[%s] \x02%d\x02 \x03]: \x02%s wins\x02 with \x02%d\x02 successes, \x02%s dominates\x02 by default." % (source,result_strings[0],totals[0],result_strings[1],totals[1],result_strings[2],totals[2],result_strings[3],totals[3],winner,winning_score,dominating)
         else:
             return "%s: [\x0314 D[%s] \x02%d\x02 \x03\x0301E[%s] \x02%d\x02 \x03\x0304M[%s] \x02%d\x02 \x03\x0306P[%s] \x02%d\x02 \x03]: \x02%s wins\x02 with \x02%d\x02 successes, \x02%s dominates\x02 with %d %s." % (source,result_strings[0],totals[0],result_strings[1],totals[1],result_strings[2],totals[2],result_strings[3],totals[3],winner,winning_score,dominating,dominating_count,strength)
-        
-    def get_drink(self):
-        return "a random drink"
+    
+    def add_drink_string(self,filename,string):
 
-    def get_quote(self,quotestr):
-        if not quotestr or quotestr == "random":
-            return "No quotes saved."
-        else:
-            return "No quotes for \"%s\"." % quotestr
+        try:
+            drink_file = open(filename,"a")
+            drink_file.write(string+"\n")
+            drink_file.close()
+            return "Added to file."
+        except:
+            return "Failed to open file for addition."
+            
+    def get_random_drink_string(self,filename):
+
+        try:
+            drink_file = open(filename)
+            drink_lines = drink_file.readlines()
+            drink_string = drink_lines[random.randint(0,len(drink_lines)-1)]
+            drink_file.close()
+            drink_string = drink_string.rstrip()
+            return drink_string
+        except:
+            return "file open failure"
+
+    def get_drink(self):
+        return self.get_random_drink_string("drink_vessel.txt") + ", containing " + self.get_random_drink_string("drink_contents.txt") + " " + self.get_random_drink_string("drink_garnish.txt") + ","
+
+    def get_quote(self,input,append_author):
+        input = input.lower()
+        db = lite.connect('quotes.db')
+        with db:
+            current = db.cursor()    
+            current.execute("CREATE TABLE IF NOT EXISTS Quotes(Tag TEXT, Body TEXT)")
+            current.execute("SELECT * FROM Quotes")
+            quotes = current.fetchall()
+            matching_quotes = []
+            for quote in quotes:
+                if input == "random" or string.find("%s%s"%(quote[0].lower(),quote[1].lower()),input) > -1:
+                    matching_quotes.append(quote)
+            if len(matching_quotes) > 0:
+                quote = quotes[random.randint(0,len(matching_quotes)-1)]
+                if append_author:
+                    return "'%s' - \x02%s\x02" % (quote[1],quote[0])
+                else:
+                    return "'%s'" % quote[1]
+            else:
+                return False
+
+    def welcome(self,joiner,c,e):
+        if self.settings.speaking == 1:
+            quote = self.get_quote(joiner,False)
+            if quote:
+                self.output("\x01ACTION welcomes " + joiner + ": " + quote + "\x01", ("<none>", joiner, e.target(), c, e))
 
 if __name__ == "__main__":
 
