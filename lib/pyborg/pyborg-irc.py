@@ -42,14 +42,19 @@ IRC._remove_connection = my_remove_connection
 
 from pygoogle import pygoogle
 from bs4 import BeautifulSoup
-import sqlite3 as lite
+from pastebin_python import PastebinPython
+from pastebin_python import PastebinPython
+from pastebin_python.pastebin_exceptions import PastebinBadRequestException, PastebinNoPastesException, PastebinFileException
+from pastebin_python.pastebin_constants import PASTE_PUBLIC, EXPIRE_10_MIN
+from pastebin_python.pastebin_formats import FORMAT_NONE, FORMAT_PYTHON, FORMAT_HTML
+from datetime import datetime, time
 
+import sqlite3 as lite
 import urllib2
 import os
 import pyborg
 import cfgfile
 import random
-import time
 import traceback
 import thread
 
@@ -57,8 +62,7 @@ def get_time():
     """
     Return time as a nice yummy string
     """
-    return time.strftime("%H:%M:%S", time.localtime(time.time()))
-
+    return datetime.now()
 
 class ModIRC(SingleServerIRCBot):
     """
@@ -77,26 +81,27 @@ class ModIRC(SingleServerIRCBot):
     # Command list for this module
     commandlist =   "IRC Module Commands:\n!chans, !ignore, \
 !join, !nick, !part, !quit, !quitmsg, !jump, !reply2ignored, !replyrate, !shutup, \
-!stealth, !unignore, !wakeup, !talk, !me, !owner"
+!stealth, !unignore, !wakeup, !talk, !me, !owner, !quote, !addquote, !dumpquotes, \
+!note, !notes, !drink, !google"
     # Detailed command description dictionary
     commanddict = {
-            "shutup": "Owner command. Usage: !shutup\nStop the bot talking",
-            "wakeup": "Owner command. Usage: !wakeup\nAllow the bot to talk",
-            "join": "Owner command. Usage: !join #chan1 [#chan2 [...]]\nJoin one or more channels",
-            "part": "Owner command. Usage: !part #chan1 [#chan2 [...]]\nLeave one or more channels",
-            "chans": "Owner command. Usage: !chans\nList channels currently on",
-            "nick": "Owner command. Usage: !nick nickname\nChange nickname",
-            "ignore": "Owner command. Usage: !ignore [nick1 [nick2 [...]]]\nIgnore one or more nicknames. Without arguments it lists ignored nicknames",
-            "unignore": "Owner command. Usage: !unignore nick1 [nick2 [...]]\nUnignores one or more nicknames",
-            "replyrate": "Owner command. Usage: !replyrate [rate%]\nSet rate of bot replies to rate%. Without arguments (not an owner-only command) shows the current reply rate",
-            "reply2ignored": "Owner command. Usage: !reply2ignored [on|off]\nAllow/disallow replying to ignored users. Without arguments shows the current setting",
-            "stealth": "Owner command. Usage: !stealth [on|off]\nTurn stealth mode on or off (disable non-owner commands and don't return CTCP VERSION). Without arguments shows the current setting",
-            "quitmsg": "Owner command. Usage: !quitmsg [message]\nSet the quit message. Without arguments show the current quit message",
-            "talk": "Owner command. Usage !talk nick message\nmake the bot send the sentence 'message' to 'nick'",
-            "me": "Owner command. Usage !me nick message\nmake the bot send the sentence 'message' to 'nick'",
-            "jump": "Owner command. Usage: !jump\nMake the bot reconnect to IRC",
-            "quit": "Owner command. Usage: !quit\nMake the bot quit IRC",
-            "owner": "Usage: !owner password\nAllow to become owner of the bot"
+            "shutup": "Owner command. Usage: !shutup\nStop the bot talking.",
+            "wakeup": "Owner command. Usage: !wakeup\nAllow the bot to talk.",
+            "join": "Owner command. Usage: !join #chan1 [#chan2 [...]]\nJoin one or more channels.",
+            "part": "Owner command. Usage: !part #chan1 [#chan2 [...]]\nLeave one or more channels.",
+            "chans": "Owner command. Usage: !chans\nList channels currently on.",
+            "nick": "Owner command. Usage: !nick nickname\nChange nickname.",
+            "ignore": "Owner command. Usage: !ignore [nick1 [nick2 [...]]]\nIgnore one or more nicknames. Without arguments it lists ignored nicknames.",
+            "unignore": "Owner command. Usage: !unignore nick1 [nick2 [...]]\nUnignores one or more nicknames.",
+            "replyrate": "Owner command. Usage: !replyrate [rate%]\nSet rate of bot replies to rate%. Without arguments (not an owner-only command) shows the current reply rate.",
+            "reply2ignored": "Owner command. Usage: !reply2ignored [on|off]\nAllow/disallow replying to ignored users. Without arguments shows the current setting.",
+            "stealth": "Owner command. Usage: !stealth [on|off]\nTurn stealth mode on or off (disable non-owner commands and don't return CTCP VERSION). Without arguments shows the current setting.",
+            "quitmsg": "Owner command. Usage: !quitmsg [message]\nSet the quit message. Without arguments show the current quit message.",
+            "talk": "Owner command. Usage !talk nick message\nmake the bot send the sentence 'message' to 'nick'.",
+            "me": "Owner command. Usage !me nick message\nmake the bot send the sentence 'message' to 'nick'.",
+            "jump": "Owner command. Usage: !jump\nMake the bot reconnect to IRC.",
+            "quit": "Owner command. Usage: !quit\nMake the bot quit IRC.",
+            "owner": "Usage: !owner password\nAllow to become owner of the bot."
     }
 
     def __init__(self, my_pyborg, args):
@@ -123,13 +128,24 @@ class ModIRC(SingleServerIRCBot):
                   "reply_chance": ("Chance of reply (%) per message", 33),
                   "quitmsg": ("IRC quit message", "Bye :-("),
                   "password": ("password for control the bot (Edit manually !)", ""),
-                  "autosaveperiod": ("Save every X minutes. Leave at 0 for no saving.", 60)
+                  "autosaveperiod": ("Save every X minutes. Leave at 0 for no saving.", 60),
+                  "pastebinpassword": ("Pastebin pass for quote dumping.",""),
+                  "pastebinusername": ("Pastebin username for quote dumping.",""),
+                  "pastebinapikey": ("Pastebin API dev key from account.","")
                 })
 
         # If autosaveperiod is set, trigger it.
         asp = self.settings.autosaveperiod
         if(asp > 0) :
             self.autosave_schedule(asp)
+
+        # Init the database and make sure our tables exist.
+        self.database_execute_script("""
+                CREATE TABLE IF NOT EXISTS Quotes(Tag TEXT, Body TEXT);
+                CREATE TABLE IF NOT EXISTS Notes(Sender TEXT, Recipient TEXT, Body TEXT, Sent TEXT);
+                CREATE TABLE IF NOT EXISTS Drinks(Type TEXT, Body TEXT);
+                CREATE TABLE IF NOT EXISTS Food(Type TEXT, Body TEXT);
+                """,False)
 
         # Create useful variables.
         self.owners = self.settings.owners[:]
@@ -233,7 +249,7 @@ class ModIRC(SingleServerIRCBot):
         if joiner == self.settings.myname:
             target = e.target() #channel
             self.inchans.append(target.lower())
-        self.welcome(joiner.lower(),c,e)
+        self.welcome(joiner,c,e)
 
     def on_privmsg(self, c, e):
         self.on_msg(c, e)
@@ -332,7 +348,7 @@ class ModIRC(SingleServerIRCBot):
         #    # Match nicks on word boundaries to avoid rewriting words incorrectly as containing nicks.
         #    p = re.compile(r'\b(' + ('|'.join(escaped_users)) + r')\b')
         #    body = p.sub('#nick', body)
-        print "Input: " + body
+        print "%s: %s" % (source,body)
 
         # Ignore selected nicks
         if self.settings.ignorelist.count(source.lower()) > 0 \
@@ -458,6 +474,32 @@ class ModIRC(SingleServerIRCBot):
                 if serving_drink:
                     self.output("\x01ACTION slings " + self.get_drink() + " down the bar to " + source + ".\x01", ("<none>", source, target, c, e))
 
+        elif command_list[0] == "!sandwich":
+            if self.settings.speaking == 1:
+                serving_food = True
+                if len(command_list) > 2 and command_list[1].lower() == "add":
+                    add_file = False
+                    if command_list[2].lower() == "bread":
+                        add_file = "food_bread.txt"
+                    elif command_list[2].lower() == "filling":
+                        add_file = "food_filling.txt"
+                    elif command_list[2].lower() == "garnish":
+                        add_file = "food_garnish.txt"
+                    elif not add_file:
+                        serving_food = False
+                        msg = "%s: You can add strings for bread, filling or garnish." % source
+                    if add_file:
+                        serving_food = False
+                        new_food_string = ""
+                        for x in range(3,len(command_list)):
+                            if x > 3:
+                                new_food_string += " " 
+                            new_food_string += command_list[x]
+                        msg = self.add_drink_string(add_file,new_food_string)
+                        
+                if serving_food:
+                    self.output("\x01ACTION " + self.get_sandwich() + " " + source + ".\x01", ("<none>", source, target, c, e))
+                    
         elif pygoogle and command_list[0] == "!google":
             if self.settings.speaking == 1:
                 if arg_count > 1:
@@ -471,19 +513,22 @@ class ModIRC(SingleServerIRCBot):
                     result_count = results.get_result_count()
                     page_title = ""
                     page_url = ""
+                    search_time = datetime.now().second
 
                     if result_count > 0:
                         page_url = str(results.get_urls()[0])
                         page = BeautifulSoup(urllib2.urlopen(page_url))
                         page_title = page.title.string
-                        msg = "%s: \x02%s\x02 (%s) [%s results]" % (source, page_title[0:max(30,len(page_title))], page_url, result_count)
+                        page_title = ''.join(i for i in page_title if ord(i)<128) # strip out non-ascii characters
+                        search_time = datetime.now().second - search_time
+                        msg = "%s: \x02%s\x02 (%s) [%s results in %s seconds]" % (source, page_title[0:max(30,len(page_title))], page_url, result_count, search_time)
                     else:
                         msg = "%s: \x02No results\x02 for '%s\'." % (source, search_string)
 
                 else:
                     msg = "%s: What do you want to Google?" % source
             
-        elif command_list[0] == "!quote":
+        elif lite and command_list[0] == "!quote":
             if self.settings.speaking == 1:
                 input = ""
                 if arg_count > 1:
@@ -503,7 +548,7 @@ class ModIRC(SingleServerIRCBot):
                 else:
                     msg = "%s: \x02Quote database error\x02 for '%s'." % (source,input)
 
-        elif command_list[0] == "!addquote":
+        elif lite and command_list[0] == "!addquote":
 
             input = False
             tag = ""
@@ -518,34 +563,79 @@ class ModIRC(SingleServerIRCBot):
                 msg = "%s: Please supply a tag and a quote." % source
             
             if input:
-                db = lite.connect('quotes.db')
-                with db:
-                    current = db.cursor()    
-                    current.execute("CREATE TABLE IF NOT EXISTS Quotes(Tag TEXT, Body TEXT)")
-                    current.execute("SELECT * FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag,input))
-                    quote_exists = current.fetchall()
-                    if len(quote_exists) == 0:
-                        current.execute("INSERT INTO Quotes VALUES('%s','%s')" % (tag,input))
-                        msg = "Added quote under '%s'." % tag
-                    else:
-                        msg = "That quote is already present in the database, idiot."
+                input = self.sanitize_sql(input)
+                tag = self.sanitize_sql(tag)
+                quote_exists = self.database_execute("SELECT * FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag,input), True)
+                if len(quote_exists) == 0:
+                    self.database_execute("INSERT INTO Quotes VALUES('%s','%s')" % (tag,input),False)
+                    msg = "Added quote under '%s'." % tag
+                else:
+                    msg = "That quote is already present in the database, idiot."
 
-        elif command_list[0] == "!printquotes":
+        elif command_list[0] == "!decide":
+        
+            decision_options = []
+            if len(command_list) > 1:
+                decision = ""
+                for x in range(1,len(command_list)):
+                    if x>1:
+                        decision += " "
+                    decision += command_list[x]
+                
+                while True:
+                    split_point = decision.find("|")
+                    if not split_point or split_point == -1:
+                        break
+                    decision_options.append(decision[0:split_point])
+                    decision = decision[split_point+1:len(decision)]
+                if decision and decision != "":
+                    decision_options.append(decision)
 
-            db = lite.connect('quotes.db')
-            with db:
-                current = db.cursor()    
-                current.execute("CREATE TABLE IF NOT EXISTS Quotes(Tag TEXT, Body TEXT)")
-                current.execute("SELECT * FROM Quotes")
-                quotes = current.fetchall()
+            print decision_options
+            if len(decision_options) > 0:
+                decision = decision_options[random.randint(0,len(decision_options)-1)]
+                msg = "%s: %s" % (source, decision)
+            else:
+                msg = "%s: I can't make a meaningful decision about that." % source
 
-                quote_file = open("quotes.txt","w")
-                for quote in quotes:
-                    quote_file.write("%s: %s\n" % (quote[0], quote[1]))
-                quote_file.close()
+        elif lite and command_list[0] == "!dumpquotes":
 
-                msg = "Saved to file."
-            
+            sorted_quotes = {}
+            for quote in self.database_execute("SELECT * FROM Quotes",True):
+                if quote[0] not in sorted_quotes:
+                    sorted_quotes[quote[0]] = []
+                sorted_quotes[quote[0]].append(quote[1])
+   
+            quote_file = open("quotes.txt","w")
+            for quote in sorted_quotes:
+                quote_file.write(quote + ":\n")
+                quote_list = sorted_quotes[quote]
+                for x in range(0,len(quote_list)):
+                    quote_file.write("    " + quote_list[x]+"\n")
+            quote_file.close()
+
+            if len(sorted_quotes) > 0:
+                pbin = PastebinPython(api_dev_key=self.settings.pastebinapikey)
+                try:
+                    self.output("%s: Dumping quotes..."%source, ("<none>", source, target, c, e))
+                    search_time = datetime.now().second
+                    pbin.createAPIUserKey(self.settings.pastebinusername,self.settings.pastebinpassword)
+                    search_time = datetime.now().second - search_time
+                    msg = source + ": Quotes dumped to " + str(pbin.createPasteFromFile('quotes.txt', '#trueidlers quote list', FORMAT_HTML, PASTE_PUBLIC, EXPIRE_10_MIN)) + " ["+ str(search_time) +" seconds]."
+                except PastebinBadRequestException as ex:
+                    msg = "s: Pastebin API error: %s" % (source,ex.message)
+                except PastebinFileException as ex:
+                    msg = "s: Pastebin file error: %s" % (source,ex.message)
+
+                    msg = "Saved to file."
+            else: 
+                msg = "Nothing to dump."
+
+        elif command_list[0] == "!clearnotes":
+            msg = "%s: Todo." % source
+        elif command_list[0] == "!notes":
+            if not self.check_notes(source,c,e):
+                msg = "%s: You have no notes waiting." % source
         elif command_list[0] == "!note":
             if arg_count == 1:
                 msg = "Who do you want to send a note to, " + source + "?"
@@ -553,11 +643,15 @@ class ModIRC(SingleServerIRCBot):
                 msg = "What do you want the note to contain, " + source + "?"
             else:
                 note_string = ""
+                note_target = command_list[1].lower()
                 for x in range(2,arg_count):
                     if(x > 2):
                         note_string = note_string + " "
                     note_string = note_string + command_list[x]
-                msg = self.handle_note(source,command_list[1],note_string)
+                note_target = self.sanitize_sql(note_target)
+                note_string = self.sanitize_sql(note_string)
+                self.database_execute("INSERT INTO Notes VALUES('%s','%s','%s','%s')" % (source.lower(),note_target.lower(),note_string,get_time()),False)
+                msg = "%s: Sending note to %s when they arrive." % (source, note_target)
 
         ### Owner commands
         if (msg == 0 or not msg) and source in self.owners and e.source() in self.owner_mask:
@@ -827,14 +921,18 @@ class ModIRC(SingleServerIRCBot):
 
     # Some extra functions for #trueidlers defined after this point.
     
-    ##
-    # This function takes a source, a recipient and a string and saves a note to pass to them later.
-    # @param sender person sending the message
-    # @param recipient target for the message
-    # @param note the message body
-    def handle_note(self,sender,recipient,note):
-        return "Sending \"%s\" to %s, %s (not really, todo)." % (note, recipient, sender)
-
+    def check_notes(self,source,c,e):
+        notes = []
+        source = self.sanitize_sql(source)
+        notes = self.database_execute("SELECT * FROM Notes WHERE Recipient='%s'" % source,True)
+        self.database_execute("DELETE FROM Notes WHERE Recipient='%s'" % source,False)
+        if len(notes) > 0:
+            for note in notes:
+                self.output("%s: Note from %s at %s: '%s'" % (source,note[0],note[3],note[2]), ("<none>", source, e.target(), c, e))
+            return "%s: No other notes." % source
+        else:
+            return False
+        
     ##
     # Processes several strings of dice rolls and returns the results.
     # @param sender person requesting the rolls
@@ -1051,32 +1149,65 @@ class ModIRC(SingleServerIRCBot):
     def get_drink(self):
         return self.get_random_drink_string("drink_vessel.txt") + ", containing " + self.get_random_drink_string("drink_contents.txt") + " " + self.get_random_drink_string("drink_garnish.txt") + ","
 
+    def get_sandwich(self):
+        filling_count = random.randint(1,3)
+        sandwich = "slaps " + self.get_random_drink_string("food_bread.txt") + " onto the counter and piles on "
+        for x in range(0,filling_count):
+            sandwich += self.get_random_drink_string("food_filling.txt")
+            if x == (filling_count-2):
+                sandwich += " and "
+            elif x < (filling_count-1):
+                sandwich += ", "
+        sandwich += ", then decorates it with " + self.get_random_drink_string("food_garnish.txt") + " before slinging it down the bar to"
+        return sandwich 
+
     def get_quote(self,input,append_author):
-        input = input.lower()
-        db = lite.connect('quotes.db')
-        with db:
-            current = db.cursor()    
-            current.execute("CREATE TABLE IF NOT EXISTS Quotes(Tag TEXT, Body TEXT)")
-            current.execute("SELECT * FROM Quotes")
-            quotes = current.fetchall()
-            matching_quotes = []
-            for quote in quotes:
-                if input == "random" or string.find("%s%s"%(quote[0].lower(),quote[1].lower()),input) > -1:
-                    matching_quotes.append(quote)
-            if len(matching_quotes) > 0:
-                quote = quotes[random.randint(0,len(matching_quotes)-1)]
-                if append_author:
-                    return "'%s' - \x02%s\x02" % (quote[1],quote[0])
-                else:
-                    return "'%s'" % quote[1]
+        matching_quotes = []
+    
+        for quote in self.database_execute("SELECT * FROM Quotes",True):
+            search_text = quote[0].lower() + " " + quote[1].lower()
+            if input == "random" or search_text.find(input.lower()) > -1:
+                matching_quotes.append(quote)
+
+        if len(matching_quotes) > 0:
+            quote = matching_quotes[random.randint(0,len(matching_quotes)-1)]
+            if append_author:
+                return "'%s' - \x02%s\x02" % (quote[1],quote[0])
             else:
-                return False
+                return "'%s'" % quote[1]
+        else:
+            return False
 
     def welcome(self,joiner,c,e):
         if self.settings.speaking == 1:
-            quote = self.get_quote(joiner,False)
-            if quote:
-                self.output("\x01ACTION welcomes " + joiner + ": " + quote + "\x01", ("<none>", joiner, e.target(), c, e))
+            welcome_quote = self.get_quote(joiner.lower(),False)
+            print "Got %s for input %s" % (welcome_quote,joiner.lower())
+            if welcome_quote:
+                self.output("\x01ACTION welcomes " + joiner + ": " + welcome_quote + "\x01", ("<none>", joiner, e.target(), c, e))
+        self.check_notes(joiner.lower(),c,e)
+
+    def sanitize_sql(self,input):
+        input = input.lower()
+        input = input.replace("\'","\'\'")
+        # Todo: sanitize SQL input
+        return input
+
+    def database_execute(self,input,return_data):
+        db = lite.connect('agatha.db')
+        with db:
+            current = db.cursor()
+            print "sql string is %s"%input
+            current.execute(input)
+            if return_data:
+                return current.fetchall()
+
+    def database_execute_script(self,input,return_data):
+        db = lite.connect('agatha.db')
+        with db:
+            current = db.cursor()
+            current.executescript(input)
+            if return_data:
+                return current.fetchall()
 
 if __name__ == "__main__":
 
