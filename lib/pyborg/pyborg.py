@@ -75,17 +75,14 @@ def filter_message(message, bot):
     message = message.replace("; ", ", ")
     for split_char in ['?', '!', '.', ',']:
         message = message.replace(split_char, " %c " % split_char)
-#    message = message.replace("'", " ' ")
-#    message = re.sub(r"\b:", " : ", message)
     message = message.replace("#nick:", "#nick :")
 
-    # Find ! and ? and append full stops.
-#    message = message.replace(". ", ".. ")
-#    message = message.replace("? ", "?. ")
-#    message = message.replace("! ", "!. ")
+    message = message.replace(" . ", ". ")
+    message = message.replace(" ? ", "? ")
+    message = message.replace(" ! ", "! ")
 
     #And correct the '...'
-#    message = message.replace("..  ..  .. ", ".... ")
+    message = message.replace("..  ..  .. ", "... ")
 
     words = message.split()
     if bot.settings.process_with == "pyborg":
@@ -351,6 +348,12 @@ class pyborg:
                     message = self.reply(body)
                 elif self.settings.process_with == "megahal":
                     message = mh_python.doreply(body)
+
+            message = message[:1].upper() + message[1:]
+            message.replace(" i "," I ")
+            ending = message[-1:]
+            if ending != "." and ending != "!" and ending != "?":
+                message += "."
 
             # single word reply: always output
             if len(message.split()) == 1:
@@ -636,7 +639,8 @@ class pyborg:
                     else:
                         msg += "off"
                         self.settings.learning = 0
-
+                msg += "."
+                        
             # add a word to the 'censored' list
             elif command_list[0] == "!censor" and self.settings.process_with == "pyborg":
                 # no arguments. list censored words

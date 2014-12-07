@@ -565,9 +565,9 @@ class ModIRC(SingleServerIRCBot):
             if input:
                 input = self.sanitize_sql(input)
                 tag = self.sanitize_sql(tag)
-                quote_exists = self.database_execute("SELECT * FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag,input), True)
+                quote_exists = self.database_execute("SELECT * FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag.lower(),input), True)
                 if len(quote_exists) == 0:
-                    self.database_execute("INSERT INTO Quotes VALUES('%s','%s')" % (tag,input),False)
+                    self.database_execute("INSERT INTO Quotes VALUES('%s','%s')" % (tag.lower(),input),False)
                     msg = "Added quote under '%s'." % tag
                 else:
                     msg = "That quote is already present in the database, idiot."
@@ -924,8 +924,8 @@ class ModIRC(SingleServerIRCBot):
     def check_notes(self,source,c,e):
         notes = []
         source = self.sanitize_sql(source)
-        notes = self.database_execute("SELECT * FROM Notes WHERE Recipient='%s'" % source,True)
-        self.database_execute("DELETE FROM Notes WHERE Recipient='%s'" % source,False)
+        notes = self.database_execute("SELECT * FROM Notes WHERE Recipient='%s'" % source.lower(),True)
+        self.database_execute("DELETE FROM Notes WHERE Recipient='%s'" % source.lower(),False)
         if len(notes) > 0:
             for note in notes:
                 self.output("%s: Note from %s at %s: '%s'" % (source,note[0],note[3],note[2]), ("<none>", source, e.target(), c, e))
@@ -1187,8 +1187,8 @@ class ModIRC(SingleServerIRCBot):
         self.check_notes(joiner.lower(),c,e)
 
     def sanitize_sql(self,input):
-        input = input.lower()
         input = input.replace("\'","\'\'")
+        input = ''.join([i if ord(i) < 128 else ' ' for i in input])
         # Todo: sanitize SQL input
         return input
 
@@ -1196,7 +1196,6 @@ class ModIRC(SingleServerIRCBot):
         db = lite.connect('agatha.db')
         with db:
             current = db.cursor()
-            print "sql string is %s"%input
             current.execute(input)
             if return_data:
                 return current.fetchall()

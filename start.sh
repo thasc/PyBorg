@@ -21,4 +21,4 @@ PYBORG=${2:-pyborg-irc.py}
 mkdir $DATADIR 2>/dev/null || :
 cd ${DATADIR}/
 
-exec nice ${PYTHON} ../lib/pyborg/${PYBORG}
+exec nice ${PYTHON} -u ../lib/pyborg/${PYBORG}
