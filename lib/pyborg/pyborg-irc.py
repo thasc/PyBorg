@@ -147,6 +147,9 @@ class ModIRC(SingleServerIRCBot):
                 CREATE TABLE IF NOT EXISTS Food(Type TEXT, Body TEXT);
                 """,False)
 
+		# Init command char
+		self.settings.command_char = "!" # TODO Move this to config at some point.
+				
         # Create useful variables.
         self.owners = self.settings.owners[:]
         self.chans = self.settings.chans[:]
@@ -156,7 +159,6 @@ class ModIRC(SingleServerIRCBot):
         self.feature_monitor = False
 
         # Parse command prompt parameters
-
         for x in xrange(1, len(args)):
             # Specify servers
             if args[x] == "-s":
@@ -380,7 +382,7 @@ class ModIRC(SingleServerIRCBot):
             replyrate = 100
 
         # Parse ModIRC commands
-        if body[0] == "!":
+        if body[0] == self.settings.command_char:
             if self.irc_commands(body, source, target, c, e) == 1:return
 
         # Pass message onto pyborg
@@ -396,22 +398,23 @@ class ModIRC(SingleServerIRCBot):
         """
         msg = ""
         command_list = body.split()
-        command_list[0] = command_list[0].lower()
-        arg_count = len(command_list)
+        temp_cmd = command_list[0].lower()
+		command_list[0] = tmp_cmd[1:]
+		arg_count = len(command_list)
 
         ### User commands
         # Query replyrate
-        if command_list[0] == "!replyrate" and len(command_list)==1:
+        if command_list[0] == "replyrate" and len(command_list)==1:
             msg = "Reply rate is "+`self.settings.reply_chance`+"%."
 
-        if command_list[0] == "!owner" and len(command_list) > 1 and source not in self.owners:
+        if command_list[0] == "owner" and len(command_list) > 1 and source not in self.owners:
             if command_list[1] == self.settings.password:
                 self.owners.append(source)
                 self.output("You've been added to owners list.", ("", source, target, c, e))
             else:
                 self.output("WRONG. Try again.", ("", source, target, c, e))
         # Stop talking
-        elif command_list[0] == "!shutup":
+        elif command_list[0] == "shutup":
             if self.settings.speaking == 1:
                 msg = "Fine, I'll be quiet."
                 self.settings.speaking = 0
@@ -435,7 +438,7 @@ class ModIRC(SingleServerIRCBot):
                     
         elif command_list[0] == "!dryh":
             if arg_count <= 4:
-                msg = "%s: DRYH syntax: !dryh <discipline> <exhaustion> <madness> <pain>." % source
+                msg = "%s: DRYH syntax: dryh <discipline> <exhaustion> <madness> <pain>." % source
             else:
                 pools = []
                 for x in range(1,5):
@@ -446,9 +449,9 @@ class ModIRC(SingleServerIRCBot):
                 if len(pools) == 4:
                     msg = self.handle_dryh_roll(source,pools)
                 else:
-                    msg = "%s: DRYH syntax: !dryh <discipline> <exhaustion> <madness> <pain>." % source
+                    msg = "%s: DRYH syntax: dryh <discipline> <exhaustion> <madness> <pain>." % source
 
-        elif command_list[0] == "!drink":
+        elif command_list[0] == "drink":
             if self.settings.speaking == 1:
                 serving_drink = True
                 if len(command_list) > 2 and command_list[1].lower() == "add":
@@ -474,7 +477,7 @@ class ModIRC(SingleServerIRCBot):
                 if serving_drink:
                     self.output("\x01ACTION slings " + self.get_drink() + " down the bar to " + source + ".\x01", ("<none>", source, target, c, e))
 
-        elif command_list[0] == "!sandwich":
+        elif command_list[0] == "sandwich":
             if self.settings.speaking == 1:
                 serving_food = True
                 if len(command_list) > 2 and command_list[1].lower() == "add":
@@ -500,7 +503,7 @@ class ModIRC(SingleServerIRCBot):
                 if serving_food:
                     self.output("\x01ACTION " + self.get_sandwich() + " " + source + ".\x01", ("<none>", source, target, c, e))
                     
-        elif pygoogle and command_list[0] == "!google":
+        elif pygoogle and command_list[0] == "google":
             if self.settings.speaking == 1:
                 if arg_count > 1:
                     search_string = ""
@@ -528,7 +531,7 @@ class ModIRC(SingleServerIRCBot):
                 else:
                     msg = "%s: What do you want to Google?" % source
             
-        elif lite and command_list[0] == "!quote":
+        elif lite and command_list[0] == "quote":
             if self.settings.speaking == 1:
                 input = ""
                 if arg_count > 1:
@@ -548,7 +551,7 @@ class ModIRC(SingleServerIRCBot):
                 else:
                     msg = "%s: \x02Quote database error\x02 for '%s'." % (source,input)
 
-        elif lite and command_list[0] == "!addquote":
+        elif lite and command_list[0] == "addquote":
 
             input = False
             tag = ""
@@ -572,7 +575,7 @@ class ModIRC(SingleServerIRCBot):
                 else:
                     msg = "That quote is already present in the database, idiot."
 
-        elif command_list[0] == "!decide":
+        elif command_list[0] == "decide":
         
             decision_options = []
             if len(command_list) > 1:
@@ -598,7 +601,7 @@ class ModIRC(SingleServerIRCBot):
             else:
                 msg = "%s: I can't make a meaningful decision about that." % source
 
-        elif lite and command_list[0] == "!dumpquotes":
+        elif lite and command_list[0] == "dumpquotes":
 
             sorted_quotes = {}
             for quote in self.database_execute("SELECT * FROM Quotes",True):
@@ -631,12 +634,12 @@ class ModIRC(SingleServerIRCBot):
             else: 
                 msg = "Nothing to dump."
 
-        elif command_list[0] == "!clearnotes":
+        elif command_list[0] == "clearnotes":
             msg = "%s: Todo." % source
-        elif command_list[0] == "!notes":
+        elif command_list[0] == "notes":
             if not self.check_notes(source,c,e):
                 msg = "%s: You have no notes waiting." % source
-        elif command_list[0] == "!note":
+        elif command_list[0] == "note":
             if arg_count == 1:
                 msg = "Who do you want to send a note to, " + source + "?"
             elif arg_count == 2:
@@ -656,8 +659,14 @@ class ModIRC(SingleServerIRCBot):
         ### Owner commands
         if (msg == 0 or not msg) and source in self.owners and e.source() in self.owner_mask:
 
+			if command_list[0] == "prefix":
+                try:
+					self.settings.command_char = command_list[0]
+					msg = "Command prefix is now %s." % self.settings.command_char
+				except:
+					pass
             # Change nick
-            if command_list[0] == "!nick":
+            elif command_list[0] == "nick":
                 try:
                     self.connection.nick(command_list[1])
                     self.settings.myname = command_list[1]
@@ -665,7 +674,7 @@ class ModIRC(SingleServerIRCBot):
                 except:
                     pass
             # stealth mode
-            elif command_list[0] == "!stealth":
+            elif command_list[0] == "stealth":
                 msg = "Stealth mode "
                 if len(command_list) == 1:
                     if self.settings.stealth == 0:
@@ -682,12 +691,12 @@ class ModIRC(SingleServerIRCBot):
                         self.settings.stealth = 0
                 msg = msg + "."
             # filter mirc colours out?
-            elif command_list[0] == "!nocolor" or command_list[0] == "!nocolour":
+            elif command_list[0] == "nocolor" or command_list[0] == "nocolour":
                 msg = "Obsolete command."
 
             # Allow/disallow replying to ignored nicks
             # (they will never be learnt from)
-            elif command_list[0] == "!reply2ignored":
+            elif command_list[0] == "reply2ignored":
                 msg = "Replying to ignored users "
                 if len(command_list) == 1:
                     if self.settings.reply2ignored == 0:
@@ -703,7 +712,7 @@ class ModIRC(SingleServerIRCBot):
                         msg = msg + "off"
                         self.settings.reply2ignored = 0
             # Wake up again
-            elif command_list[0] == "!wakeup":
+            elif command_list[0] == "wakeup":
                 if self.settings.speaking == 0:
                     self.settings.speaking = 1
                     msg = "I am now awake."
@@ -711,7 +720,7 @@ class ModIRC(SingleServerIRCBot):
                     msg = "I'm already active."
 
             # Join a channel or list of channels
-            elif command_list[0] == "!join":
+            elif command_list[0] == "join":
                 for x in xrange(1, len(command_list)):
                     if not command_list[x] in self.chans:
                         self.chans.append(command_list[x])
@@ -720,7 +729,7 @@ class ModIRC(SingleServerIRCBot):
                         c.join(command_list[x])
 
             # Part a channel or list of channels
-            elif command_list[0] == "!part":
+            elif command_list[0] == "part":
                 for x in xrange(1, len(command_list)):
                     if command_list[x] in self.chans:
                         self.chans.remove(command_list[x])
@@ -729,7 +738,7 @@ class ModIRC(SingleServerIRCBot):
                         c.part(command_list[x])
 
             # List channels currently on
-            elif command_list[0] == "!chans":
+            elif command_list[0] == "chans":
                 if len(self.channels.keys())==0:
                     msg = "I'm not currently on any channels."
                 else:
@@ -738,7 +747,7 @@ class ModIRC(SingleServerIRCBot):
                     for x in xrange(0, len(channels)):
                         msg = msg+channels[x]+" "
             # add someone to the ignore list
-            elif command_list[0] == "!ignore":
+            elif command_list[0] == "ignore":
                 # if no arguments are given say who we are
                 # ignoring
                 if len(command_list) == 1:
@@ -756,7 +765,7 @@ class ModIRC(SingleServerIRCBot):
                         self.settings.ignorelist.append(command_list[x].lower())
                         msg = "Done."
             # remove someone from the ignore list
-            elif command_list[0] == "!unignore":
+            elif command_list[0] == "unignore":
                 # Remove everyone listed from the ignore list
                 # eg !unignore tom dick harry
                 for x in xrange(1, len(command_list)):
@@ -766,34 +775,34 @@ class ModIRC(SingleServerIRCBot):
                     except:
                         pass
             # set the quit message
-            elif command_list[0] == "!quitmsg":
+            elif command_list[0] == "quitmsg":
                 if len(command_list) > 1:
                     self.settings.quitmsg = body.split(" ", 1)[1]
                     msg = "New quit message is: \"%s\"." % self.settings.quitmsg
                 else:
                     msg = "Quit message is: \"%s\"." % self.settings.quitmsg
             # make the pyborg quit
-            elif command_list[0] == "!quit":
+            elif command_list[0] == "quit":
                 sys.exit()
-            elif command_list[0] == "!jump":
+            elif command_list[0] == "jump":
                 print("Jumping servers...")
                 self.jump_server()
             # Change reply rate
-            elif command_list[0] == "!replyrate":
+            elif command_list[0] == "replyrate":
                 try:
                     self.settings.reply_chance = int(command_list[1])
                     msg = "Now replying to %d%% of messages." % int(command_list[1])
                 except:
                     msg = "Reply rate is %d%%." % self.settings.reply_chance
             #make the bot talk
-            elif command_list[0] == "!talk":
+            elif command_list[0] == "talk":
                 if len(command_list) >= 2:
                     phrase=""
                     for x in xrange (2, len (command_list)):
                         phrase = phrase + str(command_list[x]) + " "
                     self.output(phrase, ("", command_list[1], "", c, e))
             #make the bot /me
-            elif command_list[0] == "!me":
+            elif command_list[0] == "me":
                 if len(command_list) >= 2:
                     phrase=""
                     for x in xrange (2, len (command_list)):
