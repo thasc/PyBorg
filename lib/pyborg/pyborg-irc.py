@@ -132,7 +132,7 @@ class ModIRC(SingleServerIRCBot):
                   "pastebinpassword": ("Pastebin pass for quote dumping.",""),
                   "pastebinusername": ("Pastebin username for quote dumping.",""),
                   "pastebinapikey": ("Pastebin API dev key from account.",""),
-				  "command_car" : ("Prefix for IRC commands.","!")
+				  "command_char" : ("Prefix for IRC commands.","!")
                 })
 
         # If autosaveperiod is set, trigger it.
