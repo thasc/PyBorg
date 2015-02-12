@@ -397,7 +397,7 @@ class ModIRC(SingleServerIRCBot):
         msg = ""
         command_list = body.split()
         temp_cmd = command_list[0].lower()
-        command_list[0] = tmp_cmd[1:]
+        command_list[0] = temp_cmd[1:]
         arg_count = len(command_list)
 
         ### User commands
