@@ -657,12 +657,12 @@ class ModIRC(SingleServerIRCBot):
         ### Owner commands
         if (msg == 0 or not msg) and source in self.owners and e.source() in self.owner_mask:
 
-			if command_list[0] == "prefix":
+            if command_list[0] == "prefix":
                 try:
-					self.settings.command_char = command_list[0]
-					msg = "Command prefix is now %s." % self.settings.command_char
-				except:
-					pass
+                    self.settings.command_char = command_list[0]
+                    msg = "Command prefix is now %s." % self.settings.command_char
+                except:
+                    pass
             # Change nick
             elif command_list[0] == "nick":
                 try:
