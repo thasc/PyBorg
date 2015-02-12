@@ -659,7 +659,7 @@ class ModIRC(SingleServerIRCBot):
 
             if command_list[0] == "prefix":
                 try:
-                    self.settings.command_char = command_list[0]
+                    self.settings.command_char = command_list[1]
                     msg = "Command prefix is now %s." % self.settings.command_char
                 except:
                     pass
