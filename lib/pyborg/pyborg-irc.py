@@ -131,7 +131,8 @@ class ModIRC(SingleServerIRCBot):
                   "autosaveperiod": ("Save every X minutes. Leave at 0 for no saving.", 60),
                   "pastebinpassword": ("Pastebin pass for quote dumping.",""),
                   "pastebinusername": ("Pastebin username for quote dumping.",""),
-                  "pastebinapikey": ("Pastebin API dev key from account.","")
+                  "pastebinapikey": ("Pastebin API dev key from account.",""),
+				  "command_car" : ("Prefix for IRC commands.","!")
                 })
 
         # If autosaveperiod is set, trigger it.
@@ -147,9 +148,6 @@ class ModIRC(SingleServerIRCBot):
                 CREATE TABLE IF NOT EXISTS Food(Type TEXT, Body TEXT);
                 """,False)
 
-		# Init command char
-		self.settings.command_char = "!" # TODO Move this to config at some point.
-				
         # Create useful variables.
         self.owners = self.settings.owners[:]
         self.chans = self.settings.chans[:]
