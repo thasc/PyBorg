@@ -397,8 +397,8 @@ class ModIRC(SingleServerIRCBot):
         msg = ""
         command_list = body.split()
         temp_cmd = command_list[0].lower()
-		command_list[0] = tmp_cmd[1:]
-		arg_count = len(command_list)
+        command_list[0] = tmp_cmd[1:]
+        arg_count = len(command_list)
 
         ### User commands
         # Query replyrate
