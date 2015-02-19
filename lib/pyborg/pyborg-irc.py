@@ -79,29 +79,29 @@ class ModIRC(SingleServerIRCBot):
     owner_mask = []
 
     # Command list for this module
-    commandlist =   "IRC Module Commands:\n!chans, !ignore, \
-!join, !nick, !part, !quit, !quitmsg, !jump, !reply2ignored, !replyrate, !shutup, \
-!stealth, !unignore, !wakeup, !talk, !me, !owner, !quote, !addquote, !dumpquotes, \
-!note, !notes, !drink, !google"
+    commandlist =   "IRC Module Commands:\nchans, ignore, \
+join, nick, part, quit, quitmsg, jump, reply2ignored, replyrate, shutup, \
+stealth, unignore, wakeup, talk, me, owner, quote, addquote, dumpquotes, \
+note, notes, drink, google"
     # Detailed command description dictionary
     commanddict = {
-            "shutup": "Owner command. Usage: !shutup\nStop the bot talking.",
-            "wakeup": "Owner command. Usage: !wakeup\nAllow the bot to talk.",
-            "join": "Owner command. Usage: !join #chan1 [#chan2 [...]]\nJoin one or more channels.",
-            "part": "Owner command. Usage: !part #chan1 [#chan2 [...]]\nLeave one or more channels.",
-            "chans": "Owner command. Usage: !chans\nList channels currently on.",
-            "nick": "Owner command. Usage: !nick nickname\nChange nickname.",
-            "ignore": "Owner command. Usage: !ignore [nick1 [nick2 [...]]]\nIgnore one or more nicknames. Without arguments it lists ignored nicknames.",
-            "unignore": "Owner command. Usage: !unignore nick1 [nick2 [...]]\nUnignores one or more nicknames.",
-            "replyrate": "Owner command. Usage: !replyrate [rate%]\nSet rate of bot replies to rate%. Without arguments (not an owner-only command) shows the current reply rate.",
-            "reply2ignored": "Owner command. Usage: !reply2ignored [on|off]\nAllow/disallow replying to ignored users. Without arguments shows the current setting.",
-            "stealth": "Owner command. Usage: !stealth [on|off]\nTurn stealth mode on or off (disable non-owner commands and don't return CTCP VERSION). Without arguments shows the current setting.",
-            "quitmsg": "Owner command. Usage: !quitmsg [message]\nSet the quit message. Without arguments show the current quit message.",
-            "talk": "Owner command. Usage !talk nick message\nmake the bot send the sentence 'message' to 'nick'.",
-            "me": "Owner command. Usage !me nick message\nmake the bot send the sentence 'message' to 'nick'.",
-            "jump": "Owner command. Usage: !jump\nMake the bot reconnect to IRC.",
-            "quit": "Owner command. Usage: !quit\nMake the bot quit IRC.",
-            "owner": "Usage: !owner password\nAllow to become owner of the bot."
+            "shutup": "Owner command. Usage: shutup\nStop the bot talking.",
+            "wakeup": "Owner command. Usage: wakeup\nAllow the bot to talk.",
+            "join": "Owner command. Usage: join #chan1 [#chan2 [...]]\nJoin one or more channels.",
+            "part": "Owner command. Usage: part #chan1 [#chan2 [...]]\nLeave one or more channels.",
+            "chans": "Owner command. Usage: chans\nList channels currently on.",
+            "nick": "Owner command. Usage: nick nickname\nChange nickname.",
+            "ignore": "Owner command. Usage: ignore [nick1 [nick2 [...]]]\nIgnore one or more nicknames. Without arguments it lists ignored nicknames.",
+            "unignore": "Owner command. Usage: unignore nick1 [nick2 [...]]\nUnignores one or more nicknames.",
+            "replyrate": "Owner command. Usage: replyrate [rate%]\nSet rate of bot replies to rate%. Without arguments (not an owner-only command) shows the current reply rate.",
+            "reply2ignored": "Owner command. Usage: reply2ignored [on|off]\nAllow/disallow replying to ignored users. Without arguments shows the current setting.",
+            "stealth": "Owner command. Usage: stealth [on|off]\nTurn stealth mode on or off (disable non-owner commands and don't return CTCP VERSION). Without arguments shows the current setting.",
+            "quitmsg": "Owner command. Usage: quitmsg [message]\nSet the quit message. Without arguments show the current quit message.",
+            "talk": "Owner command. Usage talk nick message\nmake the bot send the sentence 'message' to 'nick'.",
+            "me": "Owner command. Usage me nick message\nmake the bot send the sentence 'message' to 'nick'.",
+            "jump": "Owner command. Usage: jump\nMake the bot reconnect to IRC.",
+            "quit": "Owner command. Usage: quit\nMake the bot quit IRC.",
+            "owner": "Usage: owner password\nAllow to become owner of the bot."
     }
 
     def __init__(self, my_pyborg, args):
@@ -418,13 +418,13 @@ class ModIRC(SingleServerIRCBot):
                 self.settings.speaking = 0
             else:
                 msg = "..."
-        elif command_list[0] == "!roll":
+        elif command_list[0] == "roll":
             if arg_count <= 1:
                 msg = "%s: Syntax: XdY+/-Z (or X#dY for separate rolls).  Mod, dice or sides max is 99 (-99 for mod)." % source
             else:
                 msg = self.handle_roll(source,command_list[1:len(command_list)])
 
-        elif command_list[0] == "!fate":
+        elif command_list[0] == "fate":
             if arg_count <= 1:
                 msg = self.handle_fate_roll(source,0)
             else:
@@ -434,7 +434,7 @@ class ModIRC(SingleServerIRCBot):
                 except ValueError:
                     msg = "%s: Syntax: !fate <modifier>." % source
                     
-        elif command_list[0] == "!dryh":
+        elif command_list[0] == "dryh":
             if arg_count <= 4:
                 msg = "%s: DRYH syntax: dryh <discipline> <exhaustion> <madness> <pain>." % source
             else:
