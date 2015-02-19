@@ -131,8 +131,9 @@ class ModIRC(SingleServerIRCBot):
                   "autosaveperiod": ("Save every X minutes. Leave at 0 for no saving.", 60),
                   "pastebinpassword": ("Pastebin pass for quote dumping.",""),
                   "pastebinusername": ("Pastebin username for quote dumping.",""),
-                  "pastebinapikey": ("Pastebin API dev key from account.","")
-                })
+                  "pastebinapikey": ("Pastebin API dev key from account.",""),
+                  "command_char" : ("Prefix for IRC commands.","!")
+              })
 
         # If autosaveperiod is set, trigger it.
         asp = self.settings.autosaveperiod
@@ -379,7 +380,7 @@ class ModIRC(SingleServerIRCBot):
             replyrate = 100
 
         # Parse ModIRC commands
-        if body[0] == pyborg.settings.command_char:
+        if body[0] == self.settings.command_char:
             if self.irc_commands(body, source, target, c, e) == 1:return
 
         # Pass message onto pyborg
@@ -658,9 +659,9 @@ class ModIRC(SingleServerIRCBot):
 
             if command_list[0] == "prefix":
                 try:
-                    pyborg.settings.command_char = command_list[1]
-                    pyborg.settings.command_char = pyborg.settings.command_char[1]
-                    msg = "Command prefix is now \'%s\'." % pyborg.settings.command_char
+                    self.settings.command_char = command_list[1]
+                    self.settings.command_char = self.settings.command_char[1]
+                    msg = "Command prefix is now \'%s\'." % self.settings.command_char
                 except:
                     pass
             # Change nick

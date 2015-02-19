@@ -408,7 +408,14 @@ replace, unlearn, purge, version, words, limit, alias, save, censor, uncensor, o
 
         # Owner commands
         if owner == 1:
-            # Save dictionary
+            if command_list[0] == "prefix":
+                try:
+                    self.settings.command_char = command_list[1]
+                    self.settings.command_char = self.settings.command_char[1]
+                except:
+                    pass
+
+			# Save dictionary
             if command_list[0] == "save":
                 if self.save_all():
                     msg = "Dictionary saved"
