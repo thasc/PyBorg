@@ -101,31 +101,31 @@ def filter_message(message, bot):
 class pyborg:
     import cfgfile
 
-    ver_string = "I am a version 1.1.2 PyBorg"
+    ver_string = "I am a custom bot built on a version 1.1.2 PyBorg. Source code can be found on Github at Zuhayr/PyBorg."
     saves_version = "1.1.0"
 
     saving = False
 
     # Main command list
-    commandlist = "Pyborg commands:\n!checkdict, !contexts, !help, !known, !learning, !rebuilddict, \
-!replace, !unlearn, !purge, !version, !words, !limit, !alias, !save, !censor, !uncensor, !owner"
+    commandlist = "Pyborg commands:\ncheckdict, contexts, help, known, learning, rebuilddict, \
+replace, unlearn, purge, version, words, limit, alias, save, censor, uncensor, owner"
     commanddict = {
-        "help": "Owner command. Usage: !help [command]\nPrints information about using a command, or a list of commands if no command is given",
-        "version": "Usage: !version\nDisplay what version of Pyborg we are running",
-        "words": "Usage: !words\nDisplay how many words are known",
-        "known": "Usage: !known word1 [word2 [...]]\nDisplays if one or more words are known, and how many contexts are known",
-        "contexts": "Owner command. Usage: !contexts <phrase>\nPrint contexts containing <phrase>",
-        "unlearn": "Owner command. Usage: !unlearn <expression>\nRemove all occurances of a word or expression from the dictionary. For example '!unlearn of of' would remove all contexts containing double 'of's",
-        "purge": "Owner command. Usage: !purge [number]\nRemove up to <number> words that appears in less than 2 contexts. Specify 0 to see how many are eligible to remove.",
-        "replace": "Owner command. Usage: !replace <old> <new>\nReplace all occurances of word <old> in the dictionary with <new>",
-        "learning": "Owner command. Usage: !learning [on|off]\nToggle bot learning. Without arguments shows the current setting",
-        "checkdict": "Owner command. Usage: !checkdict\nChecks the dictionary for broken links. Shouldn't happen, but worth trying if you get KeyError crashes",
-        "rebuilddict": "Owner command. Usage: !rebuilddict\nRebuilds dictionary links from the lines of known text. Takes a while. You probably don't need to do it unless your dictionary is very screwed",
-        "censor": "Owner command. Usage: !censor [word1 [...]]\nPrevent the bot using one or more words. Without arguments lists the currently censored words",
-        "uncensor": "Owner command. Usage: !uncensor word1 [word2 [...]]\nRemove censorship on one or more words",
-        "limit": "Owner command. Usage: !limit [number]\nSet the number of words that pyBorg can learn",
-        "alias": "Owner command. Usage: !alias : Show the differents aliases\n!alias <alias> : show the words attached to this alias\n!alias <alias> <word> : link the word to the alias",
-        "owner": "Usage : !owner password\nAdd the user in the owner list"
+        "help": "Owner command. Usage: help [command]\nPrints information about using a command, or a list of commands if no command is given",
+        "version": "Usage: version\nDisplay what version of Pyborg we are running",
+        "words": "Usage: words\nDisplay how many words are known",
+        "known": "Usage: known word1 [word2 [...]]\nDisplays if one or more words are known, and how many contexts are known",
+        "contexts": "Owner command. Usage: contexts <phrase>\nPrint contexts containing <phrase>",
+        "unlearn": "Owner command. Usage: unlearn <expression>\nRemove all occurances of a word or expression from the dictionary. For example '!unlearn of of' would remove all contexts containing double 'of's",
+        "purge": "Owner command. Usage: purge [number]\nRemove up to <number> words that appears in less than 2 contexts. Specify 0 to see how many are eligible to remove.",
+        "replace": "Owner command. Usage: replace <old> <new>\nReplace all occurances of word <old> in the dictionary with <new>",
+        "learning": "Owner command. Usage: learning [on|off]\nToggle bot learning. Without arguments shows the current setting",
+        "checkdict": "Owner command. Usage: checkdict\nChecks the dictionary for broken links. Shouldn't happen, but worth trying if you get KeyError crashes",
+        "rebuilddict": "Owner command. Usage: rebuilddict\nRebuilds dictionary links from the lines of known text. Takes a while. You probably don't need to do it unless your dictionary is very screwed",
+        "censor": "Owner command. Usage: censor [word1 [...]]\nPrevent the bot using one or more words. Without arguments lists the currently censored words",
+        "uncensor": "Owner command. Usage: uncensor word1 [word2 [...]]\nRemove censorship on one or more words",
+        "limit": "Owner command. Usage: limit [number]\nSet the number of words that pyBorg can learn",
+        "alias": "Owner command. Usage: alias : Show the differents aliases\n!alias <alias> : show the words attached to this alias\n!alias <alias> <word> : link the word to the alias",
+        "owner": "Usage : owner password\nAdd the user in the owner list"
     }
 
     def __init__(self):
@@ -144,7 +144,8 @@ class pyborg:
               "num_aliases":("Total of aliases known", 0),
               "aliases":    ("A list of similars words", {}),
               "process_with":("Wich way for generate the reply (pyborg|megahal)", "pyborg"),
-              "no_save"    :("If True, Pyborg don't saves the dictionary and configuration on disk", "False")
+              "no_save"    :("If True, Pyborg don't saves the dictionary and configuration on disk", "False"),
+              "command_char" : ("Prefix for IRC commands.","!")
             })
 
         self.answers = self.cfgfile.cfgset()
@@ -311,7 +312,7 @@ class pyborg:
         body = body + " "
 
         # Parse commands
-        if body[0] == "!":
+        if body[0] == self.settings.command_char:
             self.do_commands(io_module, body, args, owner)
             return
 
@@ -352,7 +353,7 @@ class pyborg:
             message = message[:1].upper() + message[1:]
             message.replace(" i "," I ")
             ending = message[-1:]
-            if ending != "." and ending != "!" and ending != "?":
+            if message != "" and ending != "." and ending != "!" and ending != "?":
                 message += "."
 
             # single word reply: always output
@@ -374,16 +375,16 @@ class pyborg:
         msg = ""
 
         command_list = body.split()
-        command_list[0] = command_list[0].lower()
+        temp_cmd = command_list[0].lower()
+        command_list[0] = temp_cmd[1:]
 
         # Guest commands.
-
         # Version string
-        if command_list[0] == "!version":
+        if command_list[0] == "version":
             msg = self.ver_string
 
         # How many words do we know?
-        elif command_list[0] == "!words" and self.settings.process_with == "pyborg":
+        elif command_list[0] == "words" and self.settings.process_with == "pyborg":
             num_w = self.settings.num_words
             num_c = self.settings.num_contexts
             num_l = len(self.lines)
@@ -394,7 +395,7 @@ class pyborg:
             msg = "I know %d words (%d contexts, %.2f per word), %d lines." % (num_w, num_c, num_cpw, num_l)
 
         # Do i know this word
-        elif command_list[0] == "!known" and self.settings.process_with == "pyborg":
+        elif command_list[0] == "known" and self.settings.process_with == "pyborg":
             words = (x.lower() for x in command_list[1:])
             msg = "Number of contexts: "
             for word in words:
@@ -408,14 +409,14 @@ class pyborg:
         # Owner commands
         if owner == 1:
             # Save dictionary
-            if command_list[0] == "!save":
+            if command_list[0] == "save":
                 if self.save_all():
                     msg = "Dictionary saved"
                 else:
                     msg = "Already saving"
 
             # Command list
-            elif command_list[0] == "!help":
+            elif command_list[0] == "help":
                 if len(command_list) > 1:
                     # Help for a specific command
                     cmd = command_list[1].lower()
@@ -436,7 +437,7 @@ class pyborg:
                         io_module.output(i, args)
 
             # Change the max_words setting
-            elif command_list[0] == "!limit" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "limit" and self.settings.process_with == "pyborg":
                 msg = "The max limit is "
                 if len(command_list) == 1:
                     msg += str(self.settings.max_words)
@@ -447,7 +448,7 @@ class pyborg:
 
 
             # Check for broken links in the dictionary
-            elif command_list[0] == "!checkdict" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "checkdict" and self.settings.process_with == "pyborg":
                 t = time.time()
                 num_broken = 0
                 num_bad = 0
@@ -486,7 +487,7 @@ class pyborg:
 
             # Rebuild the dictionary by discarding the word links and
             # re-parsing each line
-            elif command_list[0] == "!rebuilddict" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "rebuilddict" and self.settings.process_with == "pyborg":
                 if self.settings.learning == 1:
                     t = time.time()
 
@@ -510,7 +511,7 @@ class pyborg:
                             self.settings.num_contexts - old_num_contexts)
 
             #Remove rares words
-            elif command_list[0] == "!purge" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "purge" and self.settings.process_with == "pyborg":
                 t = time.time()
 
                 liste = []
@@ -557,7 +558,7 @@ class pyborg:
                         compteur)
 
             # Change a typo in the dictionary
-            elif command_list[0] == "!replace" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "replace" and self.settings.process_with == "pyborg":
                 if len(command_list) < 3:
                     return
                 old = command_list[1].lower()
@@ -565,7 +566,7 @@ class pyborg:
                 msg = self.replace(old, new)
 
             # Print contexts [flooding...:-]
-            elif command_list[0] == "!contexts" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "contexts" and self.settings.process_with == "pyborg":
                 # This is a large lump of data and should
                 # probably be printed, not module.output XXX
 
@@ -609,7 +610,7 @@ class pyborg:
                     x += 1
 
             # Remove a word from the vocabulary [use with care]
-            elif command_list[0] == "!unlearn" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "unlearn" and self.settings.process_with == "pyborg":
                 # build context we are looking for
                 context = " ".join(command_list[1:])
                 context = context.lower()
@@ -624,7 +625,7 @@ class pyborg:
                 msg = "Unlearn done in %0.2fs" % (time.time() - t)
 
             # Query/toggle bot learning
-            elif command_list[0] == "!learning":
+            elif command_list[0] == "learning":
                 msg = "Learning mode "
                 if len(command_list) == 1:
                     if self.settings.learning == 0:
@@ -642,7 +643,7 @@ class pyborg:
                 msg += "."
                         
             # add a word to the 'censored' list
-            elif command_list[0] == "!censor" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "censor" and self.settings.process_with == "pyborg":
                 # no arguments. list censored words
                 if len(command_list) == 1:
                     if len(self.settings.censored) == 0:
@@ -661,7 +662,7 @@ class pyborg:
                         msg += "\n"
 
             # remove a word from the censored list
-            elif command_list[0] == "!uncensor" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "uncensor" and self.settings.process_with == "pyborg":
                 # Remove everyone listed from the ignore list
                 # eg !unignore tom dick harry
                 for x in xrange(1, len(command_list)):
@@ -671,7 +672,7 @@ class pyborg:
                     except ValueError:
                         pass
 
-            elif command_list[0] == "!alias" and self.settings.process_with == "pyborg":
+            elif command_list[0] == "alias" and self.settings.process_with == "pyborg":
                 # no arguments. list aliases words
                 if len(command_list) == 1:
                     if len(self.settings.aliases) == 0:
@@ -703,7 +704,7 @@ class pyborg:
                     msg += "have been aliases to %s" % command_list[1]
 
             # Quit
-            elif command_list[0] == "!quit":
+            elif command_list[0] == "quit":
                 # Close the dictionary
                 self.save_all()
                 sys.exit()
