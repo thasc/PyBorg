@@ -551,8 +551,9 @@ note, notes, drink, google"
 
         elif lite and command_list[0] == "delquote":
 
+            input = None
             if arg_count > 2:
-                input = ""
+				input = ""
                 tag = command_list[2].lower()
                 for x in range(2, len(command_list)):
                     if x > 2:
@@ -569,7 +570,7 @@ note, notes, drink, google"
                     if len(quote_exists) == 0:
                         msg = "That quote is not in the database, idiot."
                     else:
-                        self.database_execute("DELETE FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag.lower(),input),False)
+                        self.database_execute("DELETE FROM Quotes WHERE Tag='%s' AND Body LIKE '%s'" % (tag.lower(),input),False)
                         msg = "Removed quote '%s'." % input
                 else:
                     msg = "You are not authorized to do that, idiot."
