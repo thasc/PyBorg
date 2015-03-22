@@ -573,7 +573,7 @@ note, notes, drink, google"
                         self.database_execute("DELETE FROM Quotes WHERE Tag='%s' AND Body LIKE '%s'" % (tag.lower(),input),False)
                         msg = "Removed quote '%s'." % input
                 else:
-                    msg = "You (%s) are not authorized to remove a quote from %s, idiot." % (source, tag)
+                    msg = "You are not authorized to remove a quote from '%s', idiot." % (source, tag)
 
         elif lite and command_list[0] == "addquote":
 
