@@ -565,15 +565,15 @@ note, notes, drink, google"
             if input:
                 input = self.sanitize_sql(input)
                 tag = self.sanitize_sql(tag)
-                quote_exists = self.database_execute("SELECT * FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag.lower(),input), True)
-                if source in self.owners or source.lower() == tag.lower():
+                quote_exists = self.database_execute("SELECT * FROM Quotes WHERE Tag='%s' AND Body LIKE '%s'" % (tag.lower(),input), True)
+                if (source in self.owners) or (source.lower() == tag.lower()):
                     if len(quote_exists) == 0:
                         msg = "That quote is not in the database, idiot."
                     else:
                         self.database_execute("DELETE FROM Quotes WHERE Tag='%s' AND Body LIKE '%s'" % (tag.lower(),input),False)
                         msg = "Removed quote '%s'." % input
                 else:
-                    msg = "You are not authorized to do that, idiot."
+                    msg = "You (%s) are not authorized to remove a quote from %s, idiot." % (source, tag)
 
         elif lite and command_list[0] == "addquote":
 
