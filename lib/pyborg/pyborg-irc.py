@@ -81,7 +81,7 @@ class ModIRC(SingleServerIRCBot):
     # Command list for this module
     commandlist =   "IRC Module Commands:\nchans, ignore, \
 join, nick, part, quit, quitmsg, jump, reply2ignored, replyrate, shutup, \
-stealth, unignore, wakeup, talk, me, owner, quote, addquote, dumpquotes, \
+stealth, unignore, wakeup, talk, me, owner, quote, addquote, delquote, dumpquotes, \
 note, notes, drink, google"
     # Detailed command description dictionary
     commanddict = {
@@ -548,6 +548,31 @@ note, notes, drink, google"
                         msg = "%s: No quotes for '%s'." % (source,input)
                 else:
                     msg = "%s: \x02Quote database error\x02 for '%s'." % (source,input)
+
+        elif lite and command_list[0] == "delquote":
+
+            if arg_count > 2:
+                input = ""
+                tag = command_list[2].lower()
+                for x in range(2, len(command_list)):
+                    if x > 2:
+                        input = input + " "
+                    input = input + str(command_list[x])
+            else:
+                msg = "%s: Please supply a filter string." % source
+
+            if input:
+                input = self.sanitize_sql(input)
+                tag = self.sanitize_sql(tag)
+                quote_exists = self.database_execute("SELECT * FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag.lower(),input), True)
+                if source in self.owners or source.lower() == tag.lower():
+                    if len(quote_exists) == 0:
+                        msg = "That quote is not in the database, idiot."
+                    else:
+                        self.database_execute("DELETE FROM Quotes WHERE Tag='%s' AND Body='%s'" % (tag.lower(),input),False)
+                        msg = "Removed quote '%s'." % input
+                else:
+                    msg = "You are not authorized to do that, idiot."
 
         elif lite and command_list[0] == "addquote":
 
