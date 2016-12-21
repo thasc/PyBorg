@@ -40,7 +40,7 @@ def my_remove_connection(self, connection):
 
 IRC._remove_connection = my_remove_connection
 
-from pygoogle import pygoogle
+import google as pygoogle
 from bs4 import BeautifulSoup
 from pastebin_python import PastebinPython
 from pastebin_python import PastebinPython
@@ -368,9 +368,10 @@ note, notes, drink, google"
             return
 
         # Ignore quoted messages
-        if body[0] == "<" or body[0:1] == "\"" or body[0:1] == " <":
-            print "[Ignoring quoted text.]"
-            return
+        if source != 'BayDiscord':
+            if body[0] == "<" or body[0:1] == "\"" or body[0:1] == " <":
+                print "[Ignoring quoted text.]"
+                return
 
         # We want replies reply_chance%, if speaking is on
         replyrate = self.settings.speaking * self.settings.reply_chance
