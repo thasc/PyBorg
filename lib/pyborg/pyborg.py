@@ -280,7 +280,10 @@ replace, unlearn, purge, version, words, limit, alias, save, censor, uncensor, o
                             wordlist = []
                             #Sort the list befor to export
                             for key in data.keys():
-                                wordlist.append([key, len(data[key])])
+                                if hasattr(data[key], '__len__'):
+                                    wordlist.append([key, len(data[key])])
+                                else:
+                                    wordlist.append([key, data[key]])
                             wordlist.sort(lambda x, y: cmp(x[1], y[1]))
                             #map((lambda x: f.write(str(x[0]) + "\n\r")), wordlist)
                             [ f.write(str(x[0]) + "\n\r") for x in wordlist]

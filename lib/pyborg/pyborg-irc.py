@@ -129,6 +129,7 @@ note, notes, drink, google"
                   "quitmsg": ("IRC quit message", "Bye :-("),
                   "password": ("password for control the bot (Edit manually !)", ""),
                   "autosaveperiod": ("Save every X minutes. Leave at 0 for no saving.", 60),
+                  "nickserv": ("username and password for nickserv", ("", "")),
                   "pastebinpassword": ("Pastebin pass for quote dumping.",""),
                   "pastebinusername": ("Pastebin username for quote dumping.",""),
                   "pastebinapikey": ("Pastebin API dev key from account.",""),
@@ -195,6 +196,11 @@ note, notes, drink, google"
 
     def on_welcome(self, c, e):
         print self.chans
+        if self.settings.nickserv and self.settings.nickserv[0] != '':
+            if len(self.settings.nickserv) == 2 and self.settings.nickserv[1] != '':
+                c.privmsg('NickServ', 'identify ' + self.settings.nickserv[0] + ' ' + self.settings.nickserv[1])
+            else:
+                c.privmsg('NickServ', 'identify ' + self.settings.nickserv)
         for i in self.chans:
             c.join(i)
 
@@ -249,7 +255,9 @@ note, notes, drink, google"
         if joiner == self.settings.myname:
             target = e.target() #channel
             self.inchans.append(target.lower())
-        self.welcome(joiner,c,e)
+#        no_welcome = open('no_welcome.txt').readlines()
+#        if joiner.lower().strip() not in map(lambda s: s.lower().strip(), no_welcome):
+#            self.welcome(joiner,c,e)
 
     def on_privmsg(self, c, e):
         self.on_msg(c, e)
@@ -368,10 +376,20 @@ note, notes, drink, google"
             return
 
         # Ignore quoted messages
-        if source != 'BayDiscord':
+        if source not in ['BayDiscord', 'DiscordBridge']:
             if body[0] == "<" or body[0:1] == "\"" or body[0:1] == " <":
                 print "[Ignoring quoted text.]"
                 return
+        else:
+            if body[:1] != '<':
+                # Ignore anything from BayDiscord that isn't a bridged message
+                return
+            else:
+                # Strip nickname
+                body = body[body.index('>') + 2:]
+
+        if len(body) == 0: # BayDiscord decided to send us empty text!
+            return
 
         # We want replies reply_chance%, if speaking is on
         replyrate = self.settings.speaking * self.settings.reply_chance
@@ -382,7 +400,8 @@ note, notes, drink, google"
 
         # Parse ModIRC commands
         if body[0] == self.settings.command_char:
-            if self.irc_commands(body, source, target, c, e) == 1:return
+            if self.irc_commands(body, source, target, c, e) == 1:
+                return
 
         # Pass message onto pyborg
         if source in self.owners and e.source() in self.owner_mask:
@@ -503,7 +522,8 @@ note, notes, drink, google"
                     self.output("\x01ACTION " + self.get_sandwich() + " " + source + ".\x01", ("<none>", source, target, c, e))
                     
         elif pygoogle and command_list[0] == "google":
-            if self.settings.speaking == 1:
+            msg = "%s: I'm sorry friend but I cannot Google the things right now :(" % source
+            if False and self.settings.speaking == 1:
                 if arg_count > 1:
                     search_string = ""
                     for x in range(1,len(command_list)):
@@ -826,7 +846,7 @@ note, notes, drink, google"
                     phrase=""
                     for x in xrange (2, len (command_list)):
                         phrase = phrase + str(command_list[x]) + " "
-                    self.output(phrase, ("", command_list[1], "", c, e))
+                    self.output(phrase, ("", "", command_list[1], c, e))
             #make the bot /me
             elif command_list[0] == "me":
                 if len(command_list) >= 2:
