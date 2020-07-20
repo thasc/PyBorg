@@ -700,6 +700,13 @@ note, notes, drink, google"
                 note_string = self.sanitize_sql(note_string)
                 self.database_execute("INSERT INTO Notes VALUES('%s','%s','%s','%s')" % (source.lower(),note_target.lower(),note_string,get_time()),False)
                 msg = "%s: Sending note to %s when they arrive." % (source, note_target)
+        elif command_list[0] == "possum":
+            if arg_count == 0:
+                msg = self.get_possum()
+            elif arg_count == 2 and command_list[1] == 'add':
+                msg = self.add_possum_string(command_list[2])
+            else:
+                msg = "Did you want to add a possum?"
 
         ### Owner commands
         if (msg == 0 or not msg) and source in self.owners and e.source() in self.owner_mask:
@@ -1215,6 +1222,26 @@ note, notes, drink, google"
                 sandwich += ", "
         sandwich += ", then decorates it with " + self.get_random_drink_string("food_garnish.txt") + " before slinging it down the bar to"
         return sandwich 
+
+    def get_possum(self):
+        try:
+            possum_file = open("possums.txt")
+            possum_lines = possum_file.readlines()
+            possum_string = possum_lines[random.randint(0,len(possum_lines)-1)]
+            possum_file.close()
+            possum_string = possum_string.rstrip()
+            return possum_string
+        except:
+            return "file open failure"
+
+    def add_possum_string(self, string):
+        try:
+            possum_file = open("possums.txt", "a")
+            possum_file.write(string+"\n")
+            possum_file.close()
+            return "Added to file."
+        except:
+            return "Failed to open file for addition."
 
     def get_quote(self,input,append_author):
         matching_quotes = []
