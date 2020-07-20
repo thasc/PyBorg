@@ -353,14 +353,15 @@ replace, unlearn, purge, version, words, limit, alias, save, censor, uncensor, o
                 elif self.settings.process_with == "megahal":
                     message = mh_python.doreply(body)
 
-            message.replace(" i "," I ")
-            message.replace(" Im "," I'm ")
-            message.replace(" cant "," can't ")
-            message.replace(" arent "," aren't ")
-            message.replace(" wont "," won't ")
-            message.replace(" hes "," he's ")
-            message.replace(" shes "," she's ")
-            message.replace(" theyre "," they're ")
+            message = message.replace(" i "," I ")
+            message = message.replace(" Im "," I'm ")
+            message = message.replace(" cant "," can't ")
+            message = message.replace(" arent "," aren't ")
+            message = message.replace(" wont "," won't ")
+            message = message.replace(" hes "," he's ")
+            message = message.replace(" shes "," she's ")
+            message = message.replace(" theyre "," they're ")
+            message = message.replace("@", "")
             message = message[:1].upper() + message[1:]
             ending = message[-1:]
             if message != "" and ending != "." and ending != "!" and ending != "?":
