@@ -701,9 +701,9 @@ note, notes, drink, google"
                 self.database_execute("INSERT INTO Notes VALUES('%s','%s','%s','%s')" % (source.lower(),note_target.lower(),note_string,get_time()),False)
                 msg = "%s: Sending note to %s when they arrive." % (source, note_target)
         elif command_list[0] == "possum":
-            if arg_count == 0:
+            if arg_count == 1:
                 msg = self.get_possum()
-            elif arg_count == 2 and command_list[1] == 'add':
+            elif arg_count == 3 and command_list[1] == 'add':
                 msg = self.add_possum_string(command_list[2])
             else:
                 msg = "Did you want to add a possum?"
