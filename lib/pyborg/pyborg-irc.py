@@ -341,7 +341,7 @@ note, notes, drink, google"
         if body.find("\033") != -1: return
 
         #remove special irc fonts chars
-        body = re.sub("[\x02\xa0]", "", body)
+        body = re.sub("[\x02\x0f\x1d\x1f\xa0]", "", body)
 
         # WHOOHOOO!!
         if target == self.settings.myname or source == self.settings.myname:
